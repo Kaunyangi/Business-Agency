@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Motion — Always Feel Connected</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='11' fill='%23063f3f'/%3E%3Cpath d='M6 15V9l3 3 3-4 3 4 3-3v6' stroke='%23fffcf7' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ================= TOPBAR ================= -->
+<div class="topbar">
+  <div class="brand">
+    <div class="mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" stroke="#fffcf7" stroke-width="1.5"/><path d="M6 15V9l3 3 3-4 3 4 3-3v6" stroke="#fffcf7" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <b>Motion</b><span class="x">×</span><span class="trybe">try<span>be</span></span>
+  </div>
+
+  <!-- marketing nav (shown when logged out) -->
+  <nav class="marketing-nav" id="marketingNav">
+    <a href="#product">Product</a>
+    <a href="#tickets">Tickets</a>
+    <a href="#brand">Brand system</a>
+  </nav>
+
+  <!-- app tabs (shown when logged in) -->
+  <nav class="tabs hidden" id="mainTabs"></nav>
+
+  <div class="topbar-actions" id="loggedOutActions">
+    <button class="btn-outline" id="navLoginBtn">Log in</button>
+    <button class="btn-cta" id="navGetStartedBtn">Get started</button>
+  </div>
+
+  <div class="session hidden" id="loggedInActions">
+    <div class="wallet-pill"><i></i><span class="wp-label" id="walletBalanceLabel">Motion Pay · KES 0</span></div>
+    <button class="logout-btn" id="logoutBtn">Log out</button>
+  </div>
+</div>
+
+<!-- ================= LANDING (marketing) ================= -->
+<div id="landing">
+
+  <section class="hero">
+    <div class="dots"><span></span><span></span><span></span></div>
+    <div class="hero-inner">
+      <h1>The operating system for <em>African movement</em>, culture, and money.</h1>
+      <p class="lede">One wallet. One checkout. Every event, flight, and stay — discovered through creator culture, paid for in the currency people actually carry.</p>
+      <div class="hero-tags">
+        <span>Wallet-first</span>
+        <span>M-Pesa native</span>
+        <span>Trip bundling</span>
+        <span>Country-pack ready</span>
+      </div>
+      <div class="hero-ctas">
+        <button class="btn-cta" id="heroGetStartedBtn">Get started free</button>
+        <a href="#product" class="btn-ghost-light">See it in action ↓</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="section" id="product">
+    <div class="section-label"><span class="bar"></span>PRODUCT — LIVE SCREENS</div>
+    <h2 class="section-title">One app, three worlds, one checkout.</h2>
+    <p class="section-sub">Tap through Discover, Motion Pay, and Trip to see how a destination becomes a bundled, paid, single trip object. This is an illustrative preview — the real thing lives behind "Get started" below.</p>
+
+    <div class="app-demo">
+      <div>
+        <div class="tab-bar" id="demoTabBar">
+          <button class="active" data-tab="discover">Discover</button>
+          <button data-tab="wallet">Motion Pay</button>
+          <button data-tab="trip">Trip</button>
+        </div>
+
+        <div class="phone">
+          <div class="screen">
+            <div class="notch"></div>
+            <div class="status"><span>9:41</span><span>MOTION</span></div>
+
+            <div class="app-view active" id="demo-discover">
+              <div class="discover-head">
+                <h2>Where to, this weekend?</h2>
+                <div class="search-bar">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#5b6360" stroke-width="2"/><path d="M21 21l-4-4" stroke="#5b6360" stroke-width="2" stroke-linecap="round"/></svg>
+                  Search destinations, events, drops
+                </div>
+              </div>
+              <div class="chips">
+                <div class="chip on">For you</div>
+                <div class="chip">Music</div>
+                <div class="chip">Coastal</div>
+                <div class="chip">Culture</div>
+                <div class="chip">Sport</div>
+              </div>
+              <div class="dest-feed">
+                <div class="dest-card">
+                  <div class="art" style="background:linear-gradient(160deg,#0b6e6e,#123f3f)">
+                    <svg width="100%" height="100%" viewBox="0 0 400 150" preserveAspectRatio="none">
+                      <path d="M0,100 C60,80 100,120 160,90 C220,60 260,110 320,80 C360,60 380,90 400,70 L400,150 L0,150 Z" fill="#3f9c93" opacity="0.5"/>
+                      <path d="M0,120 C80,100 140,140 200,110 C260,80 300,130 400,100 L400,150 L0,150 Z" fill="#f5e17a" opacity="0.25"/>
+                    </svg>
+                  </div>
+                  <div class="fade"></div>
+                  <div class="price-tag">from KES 4,200</div>
+                  <div class="info"><div class="loc">Diani Beach</div><div class="meta">COASTAL · SUN FESTIVAL WEEKEND</div></div>
+                </div>
+                <div class="dest-card">
+                  <div class="art" style="background:linear-gradient(160deg,#c9a26a,#8a5a2b)">
+                    <svg width="100%" height="100%" viewBox="0 0 400 150" preserveAspectRatio="none">
+                      <path d="M0,110 L60,60 L120,100 L180,50 L240,95 L300,55 L360,90 L400,70 L400,150 L0,150 Z" fill="#dd3a24" opacity="0.35"/>
+                      <path d="M0,130 L80,90 L160,120 L260,85 L400,115 L400,150 L0,150 Z" fill="#14181a" opacity="0.25"/>
+                    </svg>
+                  </div>
+                  <div class="fade"></div>
+                  <div class="price-tag">from KES 18,500</div>
+                  <div class="info"><div class="loc">Maasai Mara</div><div class="meta">SAVANNAH · MIGRATION SEASON</div></div>
+                </div>
+                <div class="dest-card">
+                  <div class="art" style="background:linear-gradient(160deg,#5b7fc7,#233b6b)">
+                    <svg width="100%" height="100%" viewBox="0 0 400 150" preserveAspectRatio="none">
+                      <rect x="20" y="60" width="18" height="90" fill="#f5e17a" opacity="0.4"/>
+                      <rect x="50" y="40" width="18" height="110" fill="#a8d97a" opacity="0.35"/>
+                      <rect x="80" y="75" width="18" height="75" fill="#fff" opacity="0.25"/>
+                      <rect x="330" y="30" width="18" height="120" fill="#fff" opacity="0.25"/>
+                      <rect x="360" y="55" width="18" height="95" fill="#f5e17a" opacity="0.3"/>
+                    </svg>
+                  </div>
+                  <div class="fade"></div>
+                  <div class="price-tag">free entry</div>
+                  <div class="info"><div class="loc">Nairobi Nights</div><div class="meta">URBAN · CREATOR MARKET + SETS</div></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="app-view" id="demo-wallet">
+              <div class="wallet-hero-demo">
+                <div class="tag">Motion Pay · KES Wallet</div>
+                <div class="bal">KES 38,420</div>
+                <div class="row"><span>•••• 8823</span><span>K. Timothy</span></div>
+              </div>
+              <div class="pots-title">Savings pots</div>
+              <div class="pots">
+                <div class="pot"><div class="name">Diani Fund</div><div class="amt">KES 12,000 / 20,000</div><div class="fill"><i style="width:60%"></i></div></div>
+                <div class="pot"><div class="name">Concert Fund</div><div class="amt">KES 3,400 / 8,000</div><div class="fill"><i style="width:42%;background:#5b7fc7"></i></div></div>
+                <div class="pot"><div class="name">Family Safari</div><div class="amt">KES 21,000 / 60,000</div><div class="fill"><i style="width:35%;background:#dd3a24"></i></div></div>
+              </div>
+              <div class="chama">
+                <div class="chama-head">
+                  <b>Trip Chama — Lamu Crew</b>
+                  <div class="avatars"><span style="background:#0b6e6e">K</span><span style="background:#dd3a24">A</span><span style="background:#5b7fc7">W</span><span style="background:#a8d97a;color:#14181a">+3</span></div>
+                </div>
+                <div class="fill"><i style="width:74%;background:#0b6e6e"></i></div>
+                <div class="amt" style="margin-top:8px">KES 44,000 of 60,000 pooled — 3 days left</div>
+              </div>
+              <div class="quick-actions">
+                <div class="qa"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="margin:0 auto 6px"><path d="M12 5v14M5 12h14" stroke="#0b6e6e" stroke-width="2" stroke-linecap="round"/></svg>Top up</div>
+                <div class="qa"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="margin:0 auto 6px"><rect x="3" y="6" width="18" height="13" rx="2" stroke="#0b6e6e" stroke-width="2"/><path d="M3 10h18" stroke="#0b6e6e" stroke-width="2"/></svg>Card</div>
+                <div class="qa"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="margin:0 auto 6px"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8" stroke="#0b6e6e" stroke-width="2" stroke-linecap="round"/></svg>Pay Later</div>
+              </div>
+            </div>
+
+            <div class="app-view" id="demo-trip">
+              <div class="trip-head"><h2>Your Diani trip</h2><p>3 items · one checkout · one confirmation</p></div>
+              <div class="bundle">
+                <div class="leg">
+                  <div class="ic" style="background:#fde9e5"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 15l6-2 4 4 3-1-3-9 5-2-1-3-11 4-4-3-2 1 3 5-3 1z" fill="#dd3a24"/></svg></div>
+                  <div class="body"><b>Nairobi → Ukunda</b><span>Jambojet · Sat 07:20</span></div>
+                  <div class="amt">KES 8,900</div>
+                </div>
+                <div class="connector"></div>
+                <div class="leg">
+                  <div class="ic" style="background:#e9f2ff"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 21h18M5 21V9l7-5 7 5v12M9 21v-6h6v6" stroke="#5b7fc7" stroke-width="2" stroke-linejoin="round"/></svg></div>
+                  <div class="body"><b>Diani Sands Villa</b><span>2 nights · Trybe Stays verified</span></div>
+                  <div class="amt">KES 14,200</div>
+                </div>
+                <div class="connector"></div>
+                <div class="leg">
+                  <div class="ic" style="background:#eef7e4"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="14" rx="2" stroke="#5c8a3a" stroke-width="2"/><circle cx="12" cy="12" r="2.4" stroke="#5c8a3a" stroke-width="1.6"/></svg></div>
+                  <div class="body"><b>Sun Festival — GA Pass</b><span>Sat–Sun · Diani Beach</span></div>
+                  <div class="amt">KES 4,200</div>
+                </div>
+              </div>
+              <div class="trip-total">
+                <div><div class="lbl">Total, from Motion Pay</div><div class="num">KES 27,300</div></div>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="#f5e17a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="pay-btn-demo">Confirm & pay — split with Chama</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="unify">
+          <div class="card">
+            <div class="ic" style="background:#fde9e5"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="2" stroke="#dd3a24" stroke-width="2"/><circle cx="12" cy="12.5" r="2.6" stroke="#dd3a24" stroke-width="1.6"/></svg></div>
+            <h4>Ticketing</h4>
+            <p>Live event catalogue, inventory-safe checkout, gate-ready tickets — real, working today.</p>
+          </div>
+          <div class="card">
+            <div class="ic" style="background:#e9f2ff"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 15l6-2 4 4 3-1-3-9 5-2-1-3-11 4-4-3-2 1 3 5-3 1z" fill="#5b7fc7"/></svg></div>
+            <h4>Flights</h4>
+            <p>Safarilink, Jambojet, and Kenya Airways seat maps, booked seat-by-seat, live.</p>
+          </div>
+          <div class="card">
+            <div class="ic" style="background:#eef7e4"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 21h18M5 21V9l7-5 7 5v12M9 21v-6h6v6" stroke="#5c8a3a" stroke-width="2" stroke-linejoin="round"/></svg></div>
+            <h4>Stays</h4>
+            <p>Verified first-party properties with date-overlap-safe room booking.</p>
+          </div>
+        </div>
+        <div class="unify" style="grid-template-columns:1fr;">
+          <div class="card" style="background:var(--motion-teal-deep);border-color:transparent;">
+            <div class="ic" style="background:rgba(255,252,247,0.15)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="3" stroke="#f5e17a" stroke-width="2"/><path d="M2 10h20" stroke="#f5e17a" stroke-width="2"/></svg></div>
+            <h4 style="color:#fffcf7">Motion Pay — the layer that holds it together<span class="coming-soon-badge">Savings pots &amp; Chama coming soon</span></h4>
+            <p style="color:rgba(255,252,247,0.75)">Every leg settles from the same wallet. Top-ups and transaction history are live now in the app; group savings pots and Trip Chama are in the demo above as a preview of what's next.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" id="tickets">
+    <div class="section-label"><span class="bar"></span>ISSUED AT CHECKOUT</div>
+    <h2 class="section-title">A standard ticket — carrying two marks, not two apps.</h2>
+    <p class="section-sub">Every ticket, boarding pass, and stay voucher generated through Motion keeps its own event branding and format. Motion and Trybe appear only as a small watermark and corner lockup.</p>
+    <div class="ticket-wrap" id="sampleTicketWrap"></div>
+  </div>
+
+  <div class="section" id="brand">
+    <div class="section-label"><span class="bar"></span>BRAND SYSTEM</div>
+    <h2 class="section-title">Calm finance, energetic culture.</h2>
+    <p class="section-sub">Motion's chrome — wallet, navigation, checkout — stays in deep teal. Trybe-branded discovery and creator surfaces borrow the four accent colours below.</p>
+    <div class="swatches">
+      <div class="swatch"><div class="chip-color" style="background:#063f3f"></div><div class="name">Motion Deep</div><div class="hex">#063F3F</div></div>
+      <div class="swatch"><div class="chip-color" style="background:#0b6e6e"></div><div class="name">Motion Teal</div><div class="hex">#0B6E6E</div></div>
+      <div class="swatch"><div class="chip-color" style="background:#dd3a24"></div><div class="name">Trybe Red</div><div class="hex">#DD3A24</div></div>
+      <div class="swatch"><div class="chip-color" style="background:#5b7fc7"></div><div class="name">Trybe Blue</div><div class="hex">#5B7FC7</div></div>
+      <div class="swatch"><div class="chip-color" style="background:#a8d97a"></div><div class="name">Trybe Green</div><div class="hex">#A8D97A</div></div>
+      <div class="swatch"><div class="chip-color" style="background:#f5e17a"></div><div class="name">Trybe Yellow</div><div class="hex">#F5E17A</div></div>
+      <div class="swatch"><div class="chip-color" style="background:#f3ede0;border:1px solid var(--line)"></div><div class="name">Sand</div><div class="hex">#F3EDE0</div></div>
+      <div class="swatch"><div class="chip-color" style="background:#14181a"></div><div class="name">Ink</div><div class="hex">#14181A</div></div>
+    </div>
+  </div>
+
+  <footer>
+    <b>MOTION</b> × trybe — Nova Inc Africa Investment Corporation
+  </footer>
+</div>
+
+<!-- ================= AUTH MODAL ================= -->
+<div class="modal-overlay hidden" id="authModal">
+  <div class="card auth-wrap" style="position:relative">
+    <button class="modal-close" id="authCloseBtn">✕</button>
+    <div class="brand">
+      <div class="mark"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" stroke="#fffcf7" stroke-width="1.5"/><path d="M6 15V9l3 3 3-4 3 4 3-3v6" stroke="#fffcf7" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <b>Motion</b><span class="x">×</span><span class="trybe">try<span>be</span></span>
+    </div>
+    <div class="auth-tabs">
+      <button class="active" data-mode="login">Log in</button>
+      <button data-mode="register">Create account</button>
+    </div>
+    <div id="authError"></div>
+    <div class="field" id="nameField"><label class="field-label">Name</label><input class="text-input" id="authName" placeholder="Full name"></div>
+    <div class="field"><label class="field-label">Email</label><input class="text-input" id="authEmail" placeholder="you@example.com"></div>
+    <div class="field"><label class="field-label">Password</label><input class="text-input" id="authPassword" type="password" placeholder="••••••••"></div>
+    <div class="field" id="roleField"><label class="field-label">I am a</label>
+      <select class="text-input" id="authRole"><option value="buyer">Buyer</option><option value="organizer">Event organizer</option></select>
+    </div>
+    <button class="btn-primary" id="authSubmit">Log in</button>
+    <div class="hint" style="text-align:center;margin-top:12px">Demo admin: admin@motion.africa / ChangeMe123!</div>
+  </div>
+</div>
+
+<!-- ================= APP SHELL (authenticated) ================= -->
+<div id="appShell" class="hidden">
+  <main class="app-main">
+
+    <section class="panel" id="panel-organizer">
+      <div class="panel-head"><h1>List your event</h1><p>Upload a poster, set ticket categories and quantities — published straight to the live catalogue.</p></div>
+      <div class="org-layout">
+        <div>
+          <div class="card">
+            <h3>Poster &amp; details</h3>
+            <label class="dropzone" id="dropzone">
+              <input type="file" id="posterInput" accept="image/*">
+              <div class="placeholder" id="posterPlaceholder">
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 16V4M12 4l-4 4M12 4l4 4" stroke="#5b6360" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3" stroke="#5b6360" stroke-width="1.8" stroke-linecap="round"/></svg>
+                Click to upload poster · JPG or PNG
+              </div>
+              <span class="replace-tag hidden" id="replaceTag">Click to replace</span>
+            </label>
+            <div class="field" style="margin-top:16px"><label class="field-label">Event name</label><input class="text-input" id="fEventName" placeholder="e.g. Sun Festival — Diani"></div>
+            <div class="grid-2">
+              <div class="field"><label class="field-label">Category</label>
+                <select class="text-input" id="fCategory"><option>Music</option><option>Festival</option><option>Culture</option><option>Sport</option><option>Business</option></select>
+              </div>
+              <div class="field"><label class="field-label">City</label><input class="text-input" id="fCity" placeholder="e.g. Diani Beach"></div>
+            </div>
+            <div class="field"><label class="field-label">Venue</label><input class="text-input" id="fVenue" placeholder="e.g. Diani Beach Grounds"></div>
+            <div class="grid-2">
+              <div class="field"><label class="field-label">Date</label><input class="text-input" type="date" id="fDate"></div>
+              <div class="field"><label class="field-label">Gate time</label><input class="text-input" type="time" id="fTime"></div>
+            </div>
+            <div class="field"><label class="field-label">Description</label><textarea class="text-input" id="fDesc" rows="3" placeholder="Tell people what to expect..."></textarea></div>
+          </div>
+
+          <div class="card">
+            <h3>Ticket categories (KES)</h3>
+            <div id="tierList"></div>
+            <button class="add-tier" id="addTierBtn">+ Add ticket category</button>
+          </div>
+
+          <div class="card">
+            <h3>Your published events</h3>
+            <div id="myEvents"><span class="hint">Loading…</span></div>
+          </div>
+        </div>
+
+        <div class="preview-sticky">
+          <div class="card">
+            <h3>Buyer checkout preview</h3>
+            <div class="preview-poster" id="previewPoster"><div class="ph" id="previewPosterPh">Poster preview</div></div>
+            <span class="preview-chip" id="previewCategory">Music</span>
+            <div class="preview-title" id="previewTitle">Untitled event</div>
+            <div class="preview-meta" id="previewMeta">Add a venue and date</div>
+            <div id="previewTiers"></div>
+            <div class="preview-total"><span class="lbl">Total</span><span class="val" id="previewTotal">KES 0</span></div>
+            <div id="orgError"></div>
+            <button class="btn-primary" id="publishBtn" style="margin-top:14px">Publish event</button>
+            <div class="hint" style="text-align:center;margin-top:8px">This preview simulates a buyer's cart before you publish. Sales settle to your Motion Pay wallet.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-buy">
+      <div class="panel-head"><h1>What's on</h1><p>Live events from the Motion catalogue. Pick your ticket categories and pay from Motion Pay, M-Pesa, or card.</p></div>
+      <div id="eventsList"><span class="hint">Loading events…</span></div>
+    </section>
+
+    <section class="panel" id="panel-flight">
+      <div class="panel-head"><h1>Book a flight</h1><p>Flight-only checkout against the live seat map for each carrier — pick your own seats.</p></div>
+      <div class="airline-tabs" id="airlineTabs"><span class="hint">Loading airlines…</span></div>
+      <div class="route-bar" id="routeBar"></div>
+      <div class="flight-layout">
+        <div>
+          <div class="cabin" id="cabin"></div>
+          <div class="cabin-legend">
+            <span><i style="background:#fffcf7;border-color:var(--line)"></i>Available</span>
+            <span><i style="background:#0b6e6e;border-color:#0b6e6e"></i>Selected</span>
+            <span><i style="background:#e4ded0;border-color:#e4ded0"></i>Booked</span>
+            <span><i style="border-color:#5b7fc7"></i>Business</span>
+          </div>
+        </div>
+        <div class="fare-box card">
+          <h3>Fare summary</h3>
+          <div id="fareLines"></div>
+          <div class="fare-total"><span class="lbl">Total</span><span class="val" id="fareTotal">KES 0</span></div>
+          <div class="field" style="margin-top:14px"><label class="field-label">Pay with</label>
+            <select class="text-input" id="flightPayMethod"><option value="wallet">Motion Pay wallet</option><option value="mpesa">M-Pesa</option><option value="card">Card</option></select>
+          </div>
+          <div class="field hidden" id="flightPayerRefField"><label class="field-label">Payer reference</label><input class="text-input" id="flightPayerRef" placeholder="254712345678"></div>
+          <button class="btn-primary" id="flightPayBtn">Select seats to continue</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-stay">
+      <div class="panel-head"><h1>Book a stay</h1><p>Accommodation-only checkout with real room inventory and date-overlap protection.</p></div>
+      <div class="property-strip" id="propertyStrip"></div>
+      <div class="stay-layout">
+        <div><div class="card" id="roomList"><h3>Available rooms</h3></div></div>
+        <div class="card dates-card">
+          <h3>Your stay</h3>
+          <div class="grid-2">
+            <div class="field"><label class="field-label">Check-in</label><input class="text-input" type="date" id="checkinDate"></div>
+            <div class="field"><label class="field-label">Check-out</label><input class="text-input" type="date" id="checkoutDate"></div>
+          </div>
+          <div class="field"><label class="field-label">Guests</label><div class="stepper"><button id="guestMinus">−</button><span id="guestCount">2</span><button id="guestPlus">+</button></div></div>
+          <div class="nights-pill"><span id="nightsLabel">0 nights</span><span id="selectedRoomLabel">No room selected</span></div>
+          <div class="fare-line"><span>Room subtotal</span><span id="stayRoomTotal">KES 0</span></div>
+          <div class="fare-line"><span>Service fee</span><span id="stayFee">KES 0</span></div>
+          <div class="fare-total"><span class="lbl">Total</span><span class="val" id="stayTotal">KES 0</span></div>
+          <div class="field" style="margin-top:14px"><label class="field-label">Pay with</label>
+            <select class="text-input" id="stayPayMethod"><option value="wallet">Motion Pay wallet</option><option value="mpesa">M-Pesa</option><option value="card">Card</option></select>
+          </div>
+          <div class="field hidden" id="stayPayerRefField"><label class="field-label">Payer reference</label><input class="text-input" id="stayPayerRef" placeholder="254712345678"></div>
+          <button class="btn-primary" id="stayPayBtn" disabled>Select a room to continue</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-wallet">
+      <div class="panel-head"><h1>Motion Pay</h1><p>Top up your wallet and track every transaction.</p></div>
+      <div class="wallet-hero-real">
+        <div class="tag">Motion Pay · KES Wallet</div>
+        <div class="bal" id="walletHeroBalance">KES 0</div>
+      </div>
+      <div class="card">
+        <h3>Top up</h3>
+        <div class="grid-2">
+          <div class="field"><label class="field-label">Amount (KES)</label><input class="text-input" id="topupAmount" type="number" value="5000"></div>
+          <div class="field"><label class="field-label">Method</label><select class="text-input" id="topupMethod"><option value="mpesa">M-Pesa</option><option value="card">Card</option></select></div>
+        </div>
+        <div class="field"><label class="field-label">Phone / card reference</label><input class="text-input" id="topupRef" placeholder="254712345678"></div>
+        <button class="btn-primary" id="topupBtn">Top up Motion Pay</button>
+      </div>
+      <div class="card">
+        <h3>Transaction history</h3>
+        <div id="walletHistory"><span class="hint">Loading…</span></div>
+      </div>
+      <div class="card">
+        <h3>Savings pots &amp; Trip Chama <span class="coming-soon-badge">Coming soon</span></h3>
+        <p class="hint" style="font-family:var(--font-body);font-size:13px;color:var(--ink-soft)">Group savings pots and split-payment trip chamas are on the roadmap for Motion Pay. This is a preview, not yet connected to real balances.</p>
+        <div class="pots">
+          <div class="pot"><div class="name">Diani Fund</div><div class="amt">KES 12,000 / 20,000</div><div class="fill"><i style="width:60%"></i></div></div>
+          <div class="pot"><div class="name">Concert Fund</div><div class="amt">KES 3,400 / 8,000</div><div class="fill"><i style="width:42%;background:#5b7fc7"></i></div></div>
+          <div class="pot"><div class="name">Family Safari</div><div class="amt">KES 21,000 / 60,000</div><div class="fill"><i style="width:35%;background:#dd3a24"></i></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-tickets">
+      <div class="panel-head"><h1>My tickets</h1><p>Generated the moment a ticket, seat, or room is paid for — always carrying the small Motion × Trybe watermark. Kept on this device; download the official PDF receipt any time.</p></div>
+      <div id="myTicketsWrap"></div>
+    </section>
+
+    <section class="panel" id="panel-admin">
+      <div class="panel-head"><h1>Revenue engine</h1><p>Adjust or waive commission per revenue line — takes effect on the next order, no deploy required.</p></div>
+      <div class="card">
+        <h3>Commission rules</h3>
+        <div class="rule-row" style="font-weight:700;font-size:11px;color:var(--ink-soft);text-transform:uppercase;font-family:var(--font-mono)">
+          <span>Line</span><span>Rate %</span><span>Flat fee (KES)</span><span>Active</span>
+        </div>
+        <div id="ruleList"><span class="hint">Loading…</span></div>
+      </div>
+      <div class="card">
+        <h3>Revenue summary (all-time)</h3>
+        <div id="revenueSummary"><span class="hint">Loading…</span></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"><i></i><span id="toastMsg"></span></div>
+
+<script src="app.js"></script>
+</body>
+</html>
