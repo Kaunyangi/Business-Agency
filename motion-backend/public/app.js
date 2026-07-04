@@ -7,6 +7,20 @@ const $$ = s => Array.from(document.querySelectorAll(s));
 const fmtKES = c => 'KES ' + Math.round(c / 100).toLocaleString('en-KE');
 const fmtKESraw = n => 'KES ' + Math.round(n).toLocaleString('en-KE');
 
+/* Escape untrusted strings (event names, organizer input, etc.) before interpolating into innerHTML. */
+const ESCAPE_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+function esc(str) { return String(str ?? '').replace(/[&<>"']/g, c => ESCAPE_MAP[c]); }
+
+/* Only allow a real base64 image data URL through into a CSS background — poster_data_url
+   is organizer-supplied and the API does not constrain its format, so anything else is dropped
+   rather than interpolated into a style attribute. */
+function safePosterCSS(dataUrl) {
+  if (typeof dataUrl === 'string' && /^data:image\/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(dataUrl)) {
+    return `background-image:url("${dataUrl}")`;
+  }
+  return '';
+}
+
 let session = { token: localStorage.getItem('motion_token') || null, user: JSON.parse(localStorage.getItem('motion_user') || 'null') };
 
 async function api(path, opts = {}) {
@@ -88,22 +102,22 @@ function ticketHTML(data, opts = {}) {
           <div class="dot"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="11" stroke="#0b6e6e" stroke-width="1.6"/><path d="M6 15V9l3 3 3-4 3 4 3-3v6" stroke="#0b6e6e" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
           <b>Issued via Motion</b>
         </div>
-        <div class="right">${data.kind || 'GENERAL ADMISSION'}</div>
+        <div class="right">${esc(data.kind || 'GENERAL ADMISSION')}</div>
       </div>
-      <div class="ticket-event"><h3>${data.title}</h3><p>${data.sub}</p></div>
+      <div class="ticket-event"><h3>${esc(data.title)}</h3><p>${esc(data.sub)}</p></div>
     </div>
     <div class="ticket-perf"><div class="notch l"></div><div class="dash"></div><div class="notch r"></div></div>
     <div class="ticket-bottom">
       <div class="tk-detail">
-        <div><span class="lbl">Holder</span><span class="val">${data.holder}</span></div>
-        <div><span class="lbl">Category</span><span class="val">${data.section}</span></div>
-        <div><span class="lbl">Ticket type</span><span class="val">${data.type}</span></div>
-        <div><span class="lbl">Paid via</span><span class="val">${data.paidVia}</span></div>
+        <div><span class="lbl">Holder</span><span class="val">${esc(data.holder)}</span></div>
+        <div><span class="lbl">Category</span><span class="val">${esc(data.section)}</span></div>
+        <div><span class="lbl">Ticket type</span><span class="val">${esc(data.type)}</span></div>
+        <div><span class="lbl">Paid via</span><span class="val">${esc(data.paidVia)}</span></div>
       </div>
       <div class="qr-box"><svg class="qrsvg" data-seed="${data.seed}" width="110" height="110" viewBox="0 0 110 110"></svg></div>
     </div>
     <div class="ticket-foot">
-      <span class="id">TICKET ID · ${data.ticketId}</span>
+      <span class="id">TICKET ID · ${esc(data.ticketId)}</span>
       ${docLink}
       <div class="badges"><span style="background:#dd3a24"></span><span style="background:#5b7fc7"></span><span style="background:#a8d97a"></span></div>
     </div>
@@ -328,7 +342,7 @@ function renderOrgPreview() {
   $('#previewTiers').innerHTML = tiers.map(t => {
     const q = orgBuyerQty[t.id] || 0;
     return `<div class="buy-row" data-id="${t.id}">
-      <div><div class="name">${t.name}</div><div class="avail">${t.qty} available</div></div>
+      <div><div class="name">${esc(t.name)}</div><div class="avail">${t.qty} available</div></div>
       <div class="price">${fmtKESraw(t.price)}</div>
       <div class="stepper">
         <button class="qminus" ${q <= 0 ? 'disabled' : ''}>−</button>
@@ -378,9 +392,9 @@ async function loadMyEvents() {
     const { events } = await api('/events/mine/dashboard');
     $('#myEvents').innerHTML = events.length ? events.map(e => `
       <div class="event-card">
-        <b>${e.name}</b>
-        <div class="meta">${e.venue} · ${e.event_date} · gross ${fmtKES(e.grossCents)}</div>
-        ${e.tiers.map(t => `<div class="hint">${t.name}: ${t.quantity_sold}/${t.quantity_total} sold</div>`).join('')}
+        <b>${esc(e.name)}</b>
+        <div class="meta">${esc(e.venue)} · ${esc(e.event_date)} · gross ${fmtKES(e.grossCents)}</div>
+        ${e.tiers.map(t => `<div class="hint">${esc(t.name)}: ${t.quantity_sold}/${t.quantity_total} sold</div>`).join('')}
       </div>`).join('') : '<span class="hint">No events published yet.</span>';
   } catch (err) { $('#myEvents').innerHTML = errBoxHTML(err); }
 }
@@ -399,17 +413,17 @@ async function loadEvents() {
       eventCart[e.id] = eventCart[e.id] || {};
       return `
       <div class="card event-buy-card" data-event="${e.id}">
-        <div class="poster" style="${e.poster_data_url ? `background-image:url(${e.poster_data_url})` : `background:linear-gradient(150deg,#0b6e6e,#123f3f)`}"></div>
+        <div class="poster" style="${safePosterCSS(e.poster_data_url) || `background:linear-gradient(150deg,#0b6e6e,#123f3f)`}"></div>
         <div>
-          <span class="preview-chip">${e.category}</span>
-          <div style="font-family:var(--font-display);font-size:17px;font-weight:600">${e.name}</div>
-          <div class="hint">${e.venue}${e.city ? ', ' + e.city : ''} · ${e.event_date}${e.gate_time ? ' · gates ' + e.gate_time : ''}</div>
+          <span class="preview-chip">${esc(e.category)}</span>
+          <div style="font-family:var(--font-display);font-size:17px;font-weight:600">${esc(e.name)}</div>
+          <div class="hint">${esc(e.venue)}${e.city ? ', ' + esc(e.city) : ''} · ${esc(e.event_date)}${e.gate_time ? ' · gates ' + esc(e.gate_time) : ''}</div>
           <div style="margin-top:10px">
             ${e.tiers.map(t => {
               const remaining = t.quantity_total - t.quantity_sold;
               const q = eventCart[e.id][t.id] || 0;
               return `<div class="buy-row" data-tier="${t.id}" data-price="${t.price_cents}" data-remaining="${remaining}">
-                <div><div class="name">${t.name}</div><div class="avail">${fmtKES(t.price_cents)} · ${remaining} left</div></div>
+                <div><div class="name">${esc(t.name)}</div><div class="avail">${fmtKES(t.price_cents)} · ${remaining} left</div></div>
                 <div class="stepper"><button class="qm" ${q <= 0 ? 'disabled' : ''}>−</button><span>${q}</span><button class="qp" ${q >= remaining ? 'disabled' : ''}>+</button></div>
               </div>`;
             }).join('') || '<span class="hint">No ticket categories left.</span>'}
@@ -719,7 +733,7 @@ async function loadWallet() {
     const w = await api('/wallet');
     $('#walletHeroBalance').textContent = fmtKES(w.balanceCents);
     $('#walletHistory').innerHTML = w.history.length ? w.history.map(t => `
-      <div class="doc-row"><div><b>${t.type}</b><div class="meta">${t.created_at} · ${t.reference || ''}</div></div><b style="color:${t.amount_cents < 0 ? '#a12e1c' : '#0b6e6e'}">${t.amount_cents < 0 ? '-' : '+'}${fmtKES(Math.abs(t.amount_cents))}</b></div>`).join('') : '<span class="hint">No transactions yet.</span>';
+      <div class="doc-row"><div><b>${esc(t.type)}</b><div class="meta">${esc(t.created_at)} · ${esc(t.reference || '')}</div></div><b style="color:${t.amount_cents < 0 ? '#a12e1c' : '#0b6e6e'}">${t.amount_cents < 0 ? '-' : '+'}${fmtKES(Math.abs(t.amount_cents))}</b></div>`).join('') : '<span class="hint">No transactions yet.</span>';
   } catch (err) { $('#walletHistory').innerHTML = errBoxHTML(err); }
 }
 
