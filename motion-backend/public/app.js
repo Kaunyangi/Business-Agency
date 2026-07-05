@@ -148,6 +148,83 @@ $('#demoTabBar').addEventListener('click', e => {
 });
 
 /* =========================================================
+   MARKETING LANDING — "Country" dropdown (all African countries)
+   ========================================================= */
+const AFRICAN_COUNTRIES = [
+  ['DZ', 'Algeria', '213'], ['AO', 'Angola', '244'], ['BJ', 'Benin', '229'], ['BW', 'Botswana', '267'],
+  ['BF', 'Burkina Faso', '226'], ['BI', 'Burundi', '257'], ['CV', 'Cabo Verde', '238'], ['CM', 'Cameroon', '237'],
+  ['CF', 'Central African Republic', '236'], ['TD', 'Chad', '235'], ['KM', 'Comoros', '269'],
+  ['CG', 'Congo-Brazzaville', '242'], ['CD', 'Congo-Kinshasa', '243'], ['CI', "Cote d'Ivoire", '225'],
+  ['DJ', 'Djibouti', '253'], ['EG', 'Egypt', '20'], ['GQ', 'Equatorial Guinea', '240'], ['ER', 'Eritrea', '291'],
+  ['SZ', 'Eswatini', '268'], ['ET', 'Ethiopia', '251'], ['GA', 'Gabon', '241'], ['GM', 'Gambia', '220'],
+  ['GH', 'Ghana', '233'], ['GN', 'Guinea', '224'], ['GW', 'Guinea-Bissau', '245'], ['KE', 'Kenya', '254'],
+  ['LS', 'Lesotho', '266'], ['LR', 'Liberia', '231'], ['LY', 'Libya', '218'], ['MG', 'Madagascar', '261'],
+  ['MW', 'Malawi', '265'], ['ML', 'Mali', '223'], ['MR', 'Mauritania', '222'], ['MU', 'Mauritius', '230'],
+  ['MA', 'Morocco', '212'], ['MZ', 'Mozambique', '258'], ['NA', 'Namibia', '264'], ['NE', 'Niger', '227'],
+  ['NG', 'Nigeria', '234'], ['RW', 'Rwanda', '250'], ['ST', 'Sao Tome and Principe', '239'],
+  ['SN', 'Senegal', '221'], ['SC', 'Seychelles', '248'], ['SL', 'Sierra Leone', '232'], ['SO', 'Somalia', '252'],
+  ['ZA', 'South Africa', '27'], ['SS', 'South Sudan', '211'], ['SD', 'Sudan', '249'], ['TZ', 'Tanzania', '255'],
+  ['TG', 'Togo', '228'], ['TN', 'Tunisia', '216'], ['UG', 'Uganda', '256'], ['ZM', 'Zambia', '260'],
+  ['ZW', 'Zimbabwe', '263'],
+];
+function flagEmoji(iso2) {
+  return String.fromCodePoint(...[...iso2.toUpperCase()].map(c => 127397 + c.charCodeAt(0)));
+}
+$('#countryTagPanel').innerHTML = AFRICAN_COUNTRIES.map(([iso, name, dial]) => `
+  <div class="hero-tag-option" data-iso="${iso}" data-name="${esc(name)}" data-dial="${dial}">
+    <span class="flag">${flagEmoji(iso)}</span><span>${esc(name)}</span><span class="code">+${dial}</span>
+  </div>`).join('');
+$('#countryTagBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  const panel = $('#countryTagPanel');
+  const open = panel.classList.toggle('open');
+  $('#countryTagBtn').setAttribute('aria-expanded', String(open));
+});
+$('#countryTagPanel').addEventListener('click', e => {
+  const opt = e.target.closest('.hero-tag-option'); if (!opt) return;
+  $('#countryTagFlag').textContent = flagEmoji(opt.dataset.iso);
+  $('#countryTagLabel').textContent = `${opt.dataset.name} +${opt.dataset.dial}`;
+  $('#countryTagPanel').classList.remove('open');
+  $('#countryTagBtn').setAttribute('aria-expanded', 'false');
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('#countryTagWrap')) { $('#countryTagPanel').classList.remove('open'); $('#countryTagBtn').setAttribute('aria-expanded', 'false'); }
+});
+
+/* =========================================================
+   MARKETING LANDING — "Flights and stays" preview (public API, no login)
+   ========================================================= */
+let staysPreviewLoaded = false;
+$('#staysTagBtn').addEventListener('click', async () => {
+  $('#staysPreviewModal').classList.remove('hidden');
+  if (staysPreviewLoaded) return;
+  try {
+    const { properties: props } = await api('/stays');
+    staysPreviewLoaded = true;
+    const counts = {};
+    props.forEach(p => { counts[p.type] = (counts[p.type] || 0) + 1; });
+    $('#staysPreviewSummary').innerHTML = `<span>${props.length} properties</span>` +
+      Object.entries(counts).map(([type, n]) => `<span>${n} ${esc(type)}${n !== 1 ? 's' : ''}</span>`).join('');
+    $('#staysPreviewGrid').innerHTML = props.map((p, i) => {
+      const fromCents = Math.min(...p.rooms.map(r => r.price_cents));
+      return `<div class="stays-mini-card">
+        <div class="art" style="background:linear-gradient(150deg,${AIRLINE_COLORS[i % AIRLINE_COLORS.length]},#14181a)"></div>
+        <div class="info">
+          <span class="type-badge">${esc(p.type)}</span>
+          <b>${esc(p.name)}</b>
+          <span class="loc">${esc(p.location)}${p.country ? ', ' + esc(p.country) : ''}</span>
+          <div class="from-price">from ${fmtKES(fromCents)}/night</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (err) {
+    $('#staysPreviewGrid').innerHTML = errBoxHTML(err);
+  }
+});
+$('#staysPreviewCloseBtn').addEventListener('click', () => $('#staysPreviewModal').classList.add('hidden'));
+$('#staysPreviewModal').addEventListener('click', e => { if (e.target.id === 'staysPreviewModal') $('#staysPreviewModal').classList.add('hidden'); });
+
+/* =========================================================
    AUTH MODAL
    ========================================================= */
 let authMode = 'login';
@@ -617,21 +694,49 @@ $('#flightPayBtn').addEventListener('click', async () => {
 /* =========================================================
    STAYS
    ========================================================= */
-let properties = [], selectedPropertyIdx = 0, selectedRoom = null;
+let properties = [], filteredProperties = [], selectedPropertyIdx = 0, selectedRoom = null;
+let stayCountryFilterValue = '', stayTypeFilterValue = '';
 
 async function loadProperties() {
   try {
     const { properties: props } = await api('/stays');
     properties = props;
-    renderPropertyStrip(); renderRooms(); computeStayTotal();
+    renderStayFilters();
+    applyStayFilters();
   } catch (err) { $('#propertyStrip').innerHTML = errBoxHTML(err); }
 }
+function renderStayFilters() {
+  const countries = [...new Set(properties.map(p => p.country).filter(Boolean))].sort();
+  $('#stayCountryFilter').innerHTML = '<option value="">All countries</option>' + countries.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  const types = [...new Set(properties.map(p => p.type).filter(Boolean))].sort();
+  $('#stayTypeChips').innerHTML = ['<button class="stay-type-chip active" data-type="">All types</button>']
+    .concat(types.map(t => `<button class="stay-type-chip" data-type="${esc(t)}">${esc(t)}</button>`)).join('');
+}
+$('#stayCountryFilter').addEventListener('change', () => {
+  stayCountryFilterValue = $('#stayCountryFilter').value;
+  applyStayFilters();
+});
+$('#stayTypeChips').addEventListener('click', e => {
+  const btn = e.target.closest('.stay-type-chip'); if (!btn) return;
+  stayTypeFilterValue = btn.dataset.type;
+  $$('#stayTypeChips .stay-type-chip').forEach(b => b.classList.toggle('active', b === btn));
+  applyStayFilters();
+});
+function applyStayFilters() {
+  filteredProperties = properties.filter(p =>
+    (!stayCountryFilterValue || p.country === stayCountryFilterValue) &&
+    (!stayTypeFilterValue || p.type === stayTypeFilterValue)
+  );
+  selectedPropertyIdx = 0; selectedRoom = null;
+  renderPropertyStrip(); renderRooms(); computeStayTotal();
+}
 function renderPropertyStrip() {
-  $('#propertyStrip').innerHTML = properties.map((p, i) => `
+  $('#propertyStrip').innerHTML = filteredProperties.map((p, i) => `
     <div class="property-card ${i === selectedPropertyIdx ? 'active' : ''}" data-i="${i}">
-      <div class="art" style="background:linear-gradient(150deg,${AIRLINE_COLORS[i % AIRLINE_COLORS.length]},#14181a)"></div>
-      <div class="info"><b>${p.name}</b><span>${p.location}</span></div>
-    </div>`).join('');
+      <div class="art" style="background:linear-gradient(150deg,${AIRLINE_COLORS[i % AIRLINE_COLORS.length]},#14181a)"><span class="type-pill">${esc(p.type || 'Stay')}</span></div>
+      <div class="info"><b>${esc(p.name)}</b><span>${esc(p.location)}${p.country ? ', ' + esc(p.country) : ''}</span></div>
+    </div>`).join('') || '<span class="hint">No properties match those filters.</span>';
+  $('#propertyStripCount').textContent = `${filteredProperties.length} of ${properties.length} properties`;
 }
 $('#propertyStrip').addEventListener('click', e => {
   const card = e.target.closest('.property-card'); if (!card) return;
@@ -639,8 +744,9 @@ $('#propertyStrip').addEventListener('click', e => {
   renderPropertyStrip(); renderRooms(); computeStayTotal();
 });
 function renderRooms() {
-  const p = properties[selectedPropertyIdx];
-  $('#roomList').innerHTML = '<h3>Available rooms — ' + p.name + '</h3>' + p.rooms.map((r, i) => `
+  const p = filteredProperties[selectedPropertyIdx];
+  if (!p) { $('#roomList').innerHTML = '<h3>Available rooms</h3><span class="hint">Select a property above.</span>'; return; }
+  $('#roomList').innerHTML = '<h3>Available rooms — ' + esc(p.name) + '</h3>' + p.rooms.map((r, i) => `
     <div class="room-card ${selectedRoom === i ? 'selected' : ''}" data-i="${i}">
       <div class="room-thumb" style="background:linear-gradient(150deg,#0b6e6e,#f3ede0)"></div>
       <div class="room-info">
@@ -666,7 +772,8 @@ function nights() {
 }
 function computeStayTotal() {
   const n = nights(); $('#nightsLabel').textContent = n + ' night' + (n !== 1 ? 's' : '');
-  const room = selectedRoom !== null ? properties[selectedPropertyIdx].rooms[selectedRoom] : null;
+  const prop = filteredProperties[selectedPropertyIdx];
+  const room = (prop && selectedRoom !== null) ? prop.rooms[selectedRoom] : null;
   $('#selectedRoomLabel').textContent = room ? room.name : 'No room selected';
   const subtotal = room ? room.price_cents * n : 0;
   const fee = subtotal ? Math.round(subtotal * 0.06) : 0;
@@ -692,7 +799,7 @@ $('#stayPayMethod').addEventListener('change', () => {
 })();
 
 $('#stayPayBtn').addEventListener('click', async () => {
-  const p = properties[selectedPropertyIdx]; const room = p.rooms[selectedRoom];
+  const p = filteredProperties[selectedPropertyIdx]; const room = p.rooms[selectedRoom];
   const paymentMethod = $('#stayPayMethod').value;
   const payerRef = paymentMethod === 'wallet' ? session.user.id : ($('#stayPayerRef').value.trim() || '254712345678');
   const n = nights();

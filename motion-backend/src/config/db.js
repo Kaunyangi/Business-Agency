@@ -107,7 +107,9 @@ CREATE TABLE IF NOT EXISTS flight_seats (
 CREATE TABLE IF NOT EXISTS properties (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  location TEXT NOT NULL
+  location TEXT NOT NULL,
+  country TEXT NOT NULL DEFAULT '',
+  type TEXT NOT NULL DEFAULT 'Villa' -- Villa | Resort | Boutique Resort | Airbnb | Lodge | Guesthouse
 );
 
 CREATE TABLE IF NOT EXISTS rooms (
@@ -200,5 +202,11 @@ CREATE TABLE IF NOT EXISTS audit_log (
 `;
 
 db.exec(SCHEMA);
+
+// Defensive column migration for databases created before country/type existed
+// on properties — node:sqlite has no "ADD COLUMN IF NOT EXISTS", so we just
+// swallow the error when the column is already there.
+try { db.exec("ALTER TABLE properties ADD COLUMN country TEXT NOT NULL DEFAULT ''"); } catch (_) {}
+try { db.exec("ALTER TABLE properties ADD COLUMN type TEXT NOT NULL DEFAULT 'Villa'"); } catch (_) {}
 
 module.exports = { db, transaction };

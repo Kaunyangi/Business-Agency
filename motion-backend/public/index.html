@@ -46,10 +46,16 @@
       <h1>The operating system for <em>African movement</em>, culture, and money.</h1>
       <p class="lede">One wallet. One checkout. Every event, flight, and stay — discovered through creator culture, paid for in the currency people actually carry.</p>
       <div class="hero-tags">
-        <span>Wallet-first</span>
-        <span>M-Pesa native</span>
-        <span>Trip bundling</span>
-        <span>Country-pack ready</span>
+        <span>Discover</span>
+        <div class="hero-tag-dropdown" id="countryTagWrap">
+          <button class="hero-tag-trigger" id="countryTagBtn" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <span id="countryTagFlag">🌍</span><span id="countryTagLabel">Country</span>
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="hero-tag-panel" id="countryTagPanel" role="listbox" aria-label="Choose a country"></div>
+        </div>
+        <span>Events</span>
+        <button class="hero-tag-trigger" id="staysTagBtn" type="button">Flights and stays</button>
       </div>
       <div class="hero-ctas">
         <button class="btn-cta" id="heroGetStartedBtn">Get started free</button>
@@ -270,6 +276,17 @@
   </div>
 </div>
 
+<!-- ================= STAYS PREVIEW MODAL (public, no login needed) ================= -->
+<div class="modal-overlay hidden" id="staysPreviewModal">
+  <div class="card stays-preview-card" style="position:relative">
+    <button class="modal-close" id="staysPreviewCloseBtn">✕</button>
+    <h3>Flights and stays across Africa</h3>
+    <p class="hint" style="font-family:var(--font-body);font-size:13px;color:var(--ink-soft);margin:-8px 0 14px">Live from the Motion catalogue — villas, resorts, Airbnbs, boutique resorts, lodges and guesthouses.</p>
+    <div id="staysPreviewSummary" class="stays-preview-summary"></div>
+    <div id="staysPreviewGrid" class="stays-preview-grid"><span class="hint">Loading properties…</span></div>
+  </div>
+</div>
+
 <!-- ================= APP SHELL (authenticated) ================= -->
 <div id="appShell" class="hidden">
   <main class="app-main">
@@ -365,7 +382,12 @@
     </section>
 
     <section class="panel" id="panel-stay">
-      <div class="panel-head"><h1>Book a stay</h1><p>Accommodation-only checkout with real room inventory and date-overlap protection.</p></div>
+      <div class="panel-head"><h1>Book a stay</h1><p>100+ villas, resorts, Airbnbs, boutique resorts, lodges and guesthouses across Africa — real room inventory, date-overlap protection.</p></div>
+      <div class="stay-filters">
+        <select class="text-input" id="stayCountryFilter" style="width:auto"><option value="">All countries</option></select>
+        <div class="stay-type-chips" id="stayTypeChips"></div>
+      </div>
+      <div class="property-strip-count" id="propertyStripCount"></div>
       <div class="property-strip" id="propertyStrip"></div>
       <div class="stay-layout">
         <div><div class="card" id="roomList"><h3>Available rooms</h3></div></div>
