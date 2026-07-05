@@ -920,7 +920,7 @@ function computeStayTotal() {
   const room = (prop && selectedRoom !== null) ? prop.rooms[selectedRoom] : null;
   $('#selectedRoomLabel').textContent = room ? room.name : 'No room selected';
   const subtotal = room ? room.price_cents * n : 0;
-  const fee = subtotal ? Math.round(subtotal * 0.18) : 0;
+  const fee = subtotal ? Math.round(subtotal * 0.08) : 0;
   $('#stayRoomTotal').textContent = fmtKES(subtotal);
   $('#stayFee').textContent = fmtKES(fee);
   $('#stayTotal').textContent = fmtKES(subtotal + fee);

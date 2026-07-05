@@ -133,7 +133,7 @@ router.post('/checkout', requireAuth, idempotent, validate(bookSchema), async (r
       db.prepare('INSERT INTO order_items (id, order_id, ref_type, ref_id, description, unit_price_cents, quantity, line_total_cents) VALUES (?,?,?,?,?,?,?,?)')
         .run(id('item'), orderId, 'room', room.id, `${room.name} — ${nights} night(s)`, room.price_cents, nights, subtotalCents);
       db.prepare('INSERT INTO order_items (id, order_id, ref_type, ref_id, description, unit_price_cents, quantity, line_total_cents) VALUES (?,?,?,?,?,?,?,?)')
-        .run(id('item'), orderId, 'fee', null, 'Motion service fee (18%)', commissionCents, 1, commissionCents);
+        .run(id('item'), orderId, 'fee', null, 'Motion service fee (8%)', commissionCents, 1, commissionCents);
 
       // Provisionally reserve the booking now; on payment failure we delete it.
       db.prepare('INSERT INTO room_bookings (id, room_id, order_id, checkin, checkout, guests, status) VALUES (?,?,?,?,?,?, \'confirmed\')')
