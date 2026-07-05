@@ -348,6 +348,24 @@ input.text-input:focus, select.text-input:focus, textarea.text-input:focus{outli
 .flight-layout{display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start;}
 @media(max-width:980px){.flight-layout{grid-template-columns:1fr;}}
 
+.searchbar-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:14px;align-items:end;margin-bottom:18px;}
+.searchbar-grid .field{margin:0;}
+@media(max-width:900px){.searchbar-grid{grid-template-columns:1fr 1fr;}}
+.trip-toggle-field{display:flex;flex-direction:column;}
+.trip-toggle{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+.trip-btn{flex:1;border:none;background:var(--paper);padding:10px 12px;font-size:13px;font-weight:700;color:var(--ink-soft);}
+.trip-btn.active{background:var(--ink);color:var(--paper);}
+.flight-step-label{font-family:var(--font-mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--motion-teal);margin:4px 0 14px;}
+
+.trip-result-card{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:16px 18px;display:grid;grid-template-columns:auto 1fr auto auto;gap:16px;align-items:center;margin-bottom:10px;width:100%;text-align:left;transition:transform .12s,box-shadow .12s;}
+.trip-result-card:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(20,20,20,.08);border-color:var(--ink);}
+.trip-result-card .op-badge{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;color:#fff;font-family:var(--font-display);font-weight:700;font-size:13px;flex:none;}
+.trip-result-card .rt{font-weight:700;font-size:14.5px;}
+.trip-result-card .sub{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+.trip-result-card .price{font-family:var(--font-mono);font-weight:700;font-size:14.5px;text-align:right;white-space:nowrap;}
+.trip-result-card .price span{display:block;font-size:10.5px;font-weight:400;color:var(--ink-soft);}
+.empty-state{border:1.5px dashed var(--line);border-radius:16px;padding:28px 20px;text-align:center;color:var(--ink-soft);font-size:13.5px;}
+
 .cabin{background:var(--sand);border-radius:20px;padding:24px 18px;overflow-x:auto;}
 .plane-nose{width:60px;height:34px;border-radius:50% 50% 0 0 / 100% 100% 0 0;background:var(--line);margin:0 auto 14px;}
 .seat-row{display:flex;justify-content:center;align-items:center;gap:6px;margin-bottom:7px;}

@@ -28,6 +28,8 @@ const strictLimiter = rateLimit({ windowMs: 60_000, max: 20, standardHeaders: tr
 app.use('/api/auth', strictLimiter);
 app.use('/api/tickets/checkout', strictLimiter);
 app.use('/api/flights/checkout', strictLimiter);
+app.use('/api/bus/checkout', strictLimiter);
+app.use('/api/sgr/checkout', strictLimiter);
 app.use('/api/stays/checkout', strictLimiter);
 app.use('/api/wallet/topup', strictLimiter);
 

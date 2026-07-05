@@ -5,6 +5,8 @@ const DEFAULT_RULES = [
   { rule_key: 'ticketing_fee', label: 'Ticketing service fee', applies_to: 'ticket', rate_percent: 8, flat_fee_cents: 0 },
   { rule_key: 'flight_commission', label: 'Flight booking commission', applies_to: 'flight', rate_percent: 5, flat_fee_cents: 0 },
   { rule_key: 'stay_commission', label: 'Accommodation commission', applies_to: 'stay', rate_percent: 8, flat_fee_cents: 0 },
+  { rule_key: 'bus_commission', label: 'Bus booking commission', applies_to: 'bus', rate_percent: 5, flat_fee_cents: 0 },
+  { rule_key: 'sgr_commission', label: 'SGR booking commission', applies_to: 'sgr', rate_percent: 5, flat_fee_cents: 0 },
 ];
 
 function seedRules() {

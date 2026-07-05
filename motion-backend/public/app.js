@@ -302,6 +302,8 @@ function tabsForRole(role) {
   const tabs = [
     { key: 'buy', label: "What's on" },
     { key: 'flight', label: 'Book a Flight' },
+    { key: 'bus', label: 'Book a Bus' },
+    { key: 'sgr', label: 'Book SGR' },
     { key: 'stay', label: 'Book a Stay' },
     { key: 'wallet', label: 'Motion Pay' },
     { key: 'tickets', label: 'My Tickets' },
@@ -355,13 +357,15 @@ async function bootApp() {
   prefillBuyerDetails();
   loadAirlines();
   loadProperties();
+  loadBusRoutes();
+  loadSgrRoutes();
 }
 
 /* =========================================================
    BUYER DETAILS — shared across ticket/flight/stay checkout
    ========================================================= */
 function prefillBuyerDetails() {
-  ['ticket', 'flight', 'stay'].forEach(prefix => {
+  ['ticket', 'flight', 'bus', 'sgr', 'stay'].forEach(prefix => {
     $('#' + prefix + 'BuyerName').value = session.user.name || '';
     $('#' + prefix + 'BuyerPhone').value = session.user.phone || '';
     $('#' + prefix + 'BuyerEmail').value = session.user.email || '';
@@ -719,44 +723,105 @@ async function purchaseTickets(eventId, btnEl) {
 }
 
 /* =========================================================
-   FLIGHTS
+   FLIGHTS — real dated schedule, search, one-way / round-trip
    ========================================================= */
 const AIRLINE_COLORS = ['#dd3a24', '#e6262e', '#5b7fc7', '#a8d97a', '#f5e17a'];
-let flights = [], currentFlight = null, selectedSeats = new Set();
+let flightRoundTrip = false;
+let flightLeg = 'outbound'; // outbound | return
+const flightLegs = {
+  outbound: { flight: null, seats: [], chosen: new Set() },
+  return: { flight: null, seats: [], chosen: new Set() },
+};
 
 async function loadAirlines() {
   try {
-    const { flights: fl } = await api('/flights');
-    flights = fl;
-    $('#airlineTabs').innerHTML = flights.map((f, i) => `<button class="${i === 0 ? 'active' : ''}" data-id="${f.id}"><i style="background:${AIRLINE_COLORS[i % AIRLINE_COLORS.length]}"></i>${f.airline}</button>`).join('');
-    if (flights.length) selectFlight(flights[0].id);
-  } catch (err) { $('#airlineTabs').innerHTML = errBoxHTML(err); }
+    const { destinations } = await api('/flights/destinations');
+    const opts = destinations.map(d => `<option value="${d}">${d}</option>`).join('');
+    $('#flightOrigin').innerHTML = opts;
+    $('#flightDestination').innerHTML = opts;
+    if (destinations.includes('Nairobi JKIA')) $('#flightOrigin').value = 'Nairobi JKIA';
+    if (destinations.includes('Mombasa Moi')) $('#flightDestination').value = 'Mombasa Moi';
+    await searchFlights();
+  } catch (err) { $('#flightResultsList').innerHTML = errBoxHTML(err); }
 }
-$('#airlineTabs').addEventListener('click', e => {
-  const btn = e.target.closest('button'); if (!btn) return;
-  $$('#airlineTabs button').forEach(b => b.classList.remove('active')); btn.classList.add('active');
-  selectFlight(btn.dataset.id);
-});
+$('#tripOneWay').addEventListener('click', () => setTripMode(false));
+$('#tripRoundTrip').addEventListener('click', () => setTripMode(true));
+function setTripMode(roundTrip) {
+  flightRoundTrip = roundTrip;
+  $('#tripOneWay').classList.toggle('active', !roundTrip);
+  $('#tripRoundTrip').classList.toggle('active', roundTrip);
+  $('#flightReturnDateField').classList.toggle('hidden', !roundTrip);
+}
+$('#flightSearchBtn').addEventListener('click', () => { resetFlightSelection(); searchFlights(); });
+function resetFlightSelection() {
+  flightLeg = 'outbound';
+  flightLegs.outbound = { flight: null, seats: [], chosen: new Set() };
+  flightLegs.return = { flight: null, seats: [], chosen: new Set() };
+  $('#routeBar').classList.add('hidden');
+  $('#flightLayout').classList.add('hidden');
+  $('#flightStepLabel').classList.add('hidden');
+}
+async function searchFlights() {
+  const origin = $('#flightOrigin').value, destination = $('#flightDestination').value, date = $('#flightDate').value;
+  try {
+    const { flights } = await api(`/flights?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&date=${date}`);
+    renderFlightResults(flights, 'outbound');
+  } catch (err) { $('#flightResultsList').innerHTML = errBoxHTML(err); }
+}
+async function searchReturnFlights() {
+  const origin = $('#flightDestination').value, destination = $('#flightOrigin').value, date = $('#flightReturnDate').value;
+  try {
+    const { flights } = await api(`/flights?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&date=${date}`);
+    renderFlightResults(flights, 'return');
+  } catch (err) { $('#flightResultsList').innerHTML = errBoxHTML(err); }
+}
+function renderFlightResults(list, legKind) {
+  $('#flightStepLabel').classList.toggle('hidden', !flightRoundTrip);
+  $('#flightStepLabel').textContent = flightRoundTrip
+    ? (legKind === 'outbound' ? 'Step 1 of 2 — choose your outbound flight' : 'Step 2 of 2 — choose your return flight')
+    : '';
+  if (!list.length) {
+    $('#flightResultsList').innerHTML = `<div class="empty-state">No flights match that route and date. Try another date or destination.</div>`;
+    return;
+  }
+  $('#flightResultsList').innerHTML = list.map((f, i) => `
+    <button class="trip-result-card" data-id="${f.id}">
+      <span class="op-badge" style="background:${AIRLINE_COLORS[i % AIRLINE_COLORS.length]}">${f.airline.split(' ').map(w => w[0]).join('').slice(0, 2)}</span>
+      <span><span class="rt">${f.departs_at} ${f.origin} → ${addMinutes(f.departs_at, f.duration_minutes)} ${f.destination}</span>
+      <span class="sub">${f.airline} ${f.flight_no} · ${f.flight_date} · ${f.duration_minutes} min</span></span>
+      <span class="price">${fmtKES(f.economy_fare_cents)}<span>per seat</span></span>
+      <span style="font-size:18px;color:var(--motion-teal)">→</span>
+    </button>`).join('');
+  $('#flightResultsList').onclick = e => {
+    const btn = e.target.closest('[data-id]'); if (!btn) return;
+    const flight = list.find(f => f.id === btn.dataset.id);
+    selectLegFlight(flight, legKind);
+  };
+}
 function addMinutes(time, mins) {
   const [h, m] = time.split(':').map(Number);
   const total = h * 60 + m + mins;
   const hh = Math.floor(total / 60) % 24, mm = total % 60;
   return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
 }
-async function selectFlight(flightId) {
-  currentFlight = flights.find(f => f.id === flightId);
-  selectedSeats.clear();
+async function selectLegFlight(flight, legKind) {
+  flightLeg = legKind;
+  flightLegs[legKind].flight = flight;
+  flightLegs[legKind].chosen.clear();
+  $('#routeBar').classList.remove('hidden');
+  $('#flightLayout').classList.remove('hidden');
   $('#routeBar').innerHTML = `
-    <div class="leg"><div><div class="city">${currentFlight.origin}</div><div class="sub">DEPARTS ${currentFlight.departs_at}</div></div>
+    <div class="leg"><div><div class="city">${flight.origin}</div><div class="sub">DEPARTS ${flight.departs_at}</div></div>
     <svg width="26" height="14" viewBox="0 0 26 14" fill="none"><path d="M1 7h22M17 1l6 6-6 6" stroke="#fffcf7" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    <div><div class="city">${currentFlight.destination}</div><div class="sub">ARRIVES ${addMinutes(currentFlight.departs_at, currentFlight.duration_minutes)}</div></div></div>
-    <div class="meta">${currentFlight.airline} · ${currentFlight.flight_no}<br>${currentFlight.flight_date} · ${currentFlight.duration_minutes} min</div>`;
+    <div><div class="city">${flight.destination}</div><div class="sub">ARRIVES ${addMinutes(flight.departs_at, flight.duration_minutes)}</div></div></div>
+    <div class="meta">${flight.airline} · ${flight.flight_no}<br>${flight.flight_date} · ${flight.duration_minutes} min</div>`;
   await renderCabin();
   renderFare();
 }
 async function renderCabin() {
-  const { seats } = await api(`/flights/${currentFlight.id}/seats`);
-  currentFlight.seats = seats;
+  const leg = flightLegs[flightLeg];
+  const { seats } = await api(`/flights/${leg.flight.id}/seats`);
+  leg.seats = seats;
   const byRow = {};
   seats.forEach(s => { (byRow[s.row_no] = byRow[s.row_no] || []).push(s); });
   const cols = Math.max(...seats.map(s => s.letter.charCodeAt(0) - 64));
@@ -768,7 +833,7 @@ async function renderCabin() {
     html += `<div class="seat-row"><span class="rownum">${r}</span>`;
     byRow[r].sort((a, b) => a.letter.localeCompare(b.letter)).forEach((s, ci) => {
       const cls = ['seat', s.status, s.cabin_class];
-      if (selectedSeats.has(s.id)) cls[1] = 'selected';
+      if (leg.chosen.has(s.id)) cls[1] = 'selected';
       html += `<div class="${cls.join(' ')}" data-id="${s.id}">${s.letter}</div>`;
       if (ci + 1 === aisleAfter) html += `<div class="seat aisle-gap"></div>`;
     });
@@ -779,60 +844,354 @@ async function renderCabin() {
 }
 $('#cabin').addEventListener('click', e => {
   const el = e.target.closest('.seat:not(.aisle-gap)'); if (!el) return;
-  const seat = currentFlight.seats.find(s => s.id === el.dataset.id);
+  const leg = flightLegs[flightLeg];
+  const seat = leg.seats.find(s => s.id === el.dataset.id);
   if (seat.status === 'booked') {
     el.classList.add('shake'); setTimeout(() => el.classList.remove('shake'), 300);
     return;
   }
-  if (selectedSeats.has(seat.id)) selectedSeats.delete(seat.id);
+  if (leg.chosen.has(seat.id)) leg.chosen.delete(seat.id);
   else {
-    if (selectedSeats.size >= 9) { toast('Maximum 9 seats per booking', true); return; }
-    selectedSeats.add(seat.id);
+    if (leg.chosen.size >= 9) { toast('Maximum 9 seats per booking', true); return; }
+    leg.chosen.add(seat.id);
   }
   renderCabin(); renderFare();
 });
 function renderFare() {
-  if (!currentFlight) return;
-  const chosen = [...selectedSeats].map(id => currentFlight.seats.find(s => s.id === id));
-  const base = chosen.reduce((s, seat) => s + (seat.cabin_class === 'business' ? currentFlight.business_fare_cents : currentFlight.economy_fare_cents), 0);
-  const taxes = chosen.length * 1200 * 100;
-  $('#fareLines').innerHTML = `
-    <div class="fare-line"><span>Fare (${chosen.length} seat${chosen.length !== 1 ? 's' : ''})</span><span>${fmtKES(base)}</span></div>
-    <div class="fare-line"><span>Taxes & fees</span><span>${fmtKES(taxes)}</span></div>
-    <div class="fare-line"><span>Seats</span><span>${chosen.map(s => s.row_no + s.letter).join(', ') || '—'}</span></div>`;
+  const out = flightLegs.outbound, ret = flightLegs.return;
+  if (!out.flight && !ret.flight) return;
+  const legFare = (leg) => {
+    const chosen = [...leg.chosen].map(id => leg.seats.find(s => s.id === id));
+    const base = chosen.reduce((s, seat) => s + (seat.cabin_class === 'business' ? leg.flight.business_fare_cents : leg.flight.economy_fare_cents), 0);
+    return { chosen, base };
+  };
+  const outFare = out.flight ? legFare(out) : { chosen: [], base: 0 };
+  const retFare = ret.flight ? legFare(ret) : { chosen: [], base: 0 };
+  const totalSeats = outFare.chosen.length + retFare.chosen.length;
+  const base = outFare.base + retFare.base;
+  const taxes = totalSeats * 1200 * 100;
+  let lines = '';
+  if (out.flight) lines += `<div class="fare-line"><span>Outbound (${outFare.chosen.length} seat${outFare.chosen.length !== 1 ? 's' : ''})</span><span>${fmtKES(outFare.base)}</span></div>
+    <div class="fare-line"><span>Outbound seats</span><span>${outFare.chosen.map(s => s.row_no + s.letter).join(', ') || '—'}</span></div>`;
+  if (flightRoundTrip && ret.flight) lines += `<div class="fare-line"><span>Return (${retFare.chosen.length} seat${retFare.chosen.length !== 1 ? 's' : ''})</span><span>${fmtKES(retFare.base)}</span></div>
+    <div class="fare-line"><span>Return seats</span><span>${retFare.chosen.map(s => s.row_no + s.letter).join(', ') || '—'}</span></div>`;
+  lines += `<div class="fare-line"><span>Taxes & fees</span><span>${fmtKES(taxes)}</span></div>`;
+  $('#fareLines').innerHTML = lines;
   $('#fareTotal').textContent = fmtKES(base + taxes);
+
   const btn = $('#flightPayBtn');
-  btn.disabled = chosen.length === 0;
-  btn.textContent = chosen.length ? `Pay ${fmtKES(base + taxes)} with Motion Pay` : 'Select seats to continue';
+  const outboundReady = outFare.chosen.length > 0;
+  if (flightRoundTrip && flightLeg === 'outbound') {
+    btn.disabled = !outboundReady;
+    btn.textContent = outboundReady ? 'Continue to return flight →' : 'Select seats to continue';
+  } else {
+    const ready = flightRoundTrip ? (outboundReady && retFare.chosen.length > 0) : outboundReady;
+    btn.disabled = !ready;
+    btn.textContent = ready ? `Pay ${fmtKES(base + taxes)} with Motion Pay` : 'Select seats to continue';
+  }
 }
 $('#flightPayMethod').addEventListener('change', () => {
   $('#flightPayerRefField').classList.toggle('hidden', $('#flightPayMethod').value === 'wallet');
 });
 $('#flightPayBtn').addEventListener('click', async () => {
+  if (flightRoundTrip && flightLeg === 'outbound') {
+    flightLeg = 'return';
+    $('#flightLayout').classList.add('hidden');
+    $('#routeBar').classList.add('hidden');
+    await searchReturnFlights();
+    return;
+  }
   if (!buyerDetailsValid('flight')) return toast('Fill in passenger name, phone, and email first', true);
   const paymentMethod = $('#flightPayMethod').value;
   const payerRef = paymentMethod === 'wallet' ? session.user.id : ($('#flightPayerRef').value.trim() || '254712345678');
   const buyer = readBuyerDetails('flight');
   const btn = $('#flightPayBtn');
+  const out = flightLegs.outbound, ret = flightLegs.return;
   try {
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
-    const chosen = [...selectedSeats].map(id => currentFlight.seats.find(s => s.id === id));
+    const body = {
+      flightId: out.flight.id, seatIds: [...out.chosen], paymentMethod, payerRef, ...buyer,
+    };
+    if (flightRoundTrip && ret.flight) { body.returnFlightId = ret.flight.id; body.returnSeatIds = [...ret.chosen]; }
     const order = await api('/flights/checkout', {
       method: 'POST', headers: { 'Idempotency-Key': 'flight-' + Date.now() },
-      body: JSON.stringify({ flightId: currentFlight.id, seatIds: [...selectedSeats], paymentMethod, payerRef, ...buyer }),
+      body: JSON.stringify(body),
     });
+    const outChosen = [...out.chosen].map(id => out.seats.find(s => s.id === id));
+    const retChosen = flightRoundTrip && ret.flight ? [...ret.chosen].map(id => ret.seats.find(s => s.id === id)) : [];
     saveTicket({
-      title: `${currentFlight.origin} → ${currentFlight.destination}`,
-      sub: `${currentFlight.flight_date.toUpperCase()} · ${currentFlight.flight_no} · DEPARTS ${currentFlight.departs_at}`,
-      holder: buyer.buyerName, section: chosen.map(s => s.row_no + s.letter).join(', '), type: currentFlight.airline,
+      title: flightRoundTrip && ret.flight ? `${out.flight.origin} ⇄ ${out.flight.destination}` : `${out.flight.origin} → ${out.flight.destination}`,
+      sub: `${out.flight.flight_date.toUpperCase()} · ${out.flight.flight_no} · DEPARTS ${out.flight.departs_at}${retChosen.length ? ` · RETURN ${ret.flight.flight_date.toUpperCase()} ${ret.flight.flight_no}` : ''}`,
+      holder: buyer.buyerName, section: outChosen.map(s => s.row_no + s.letter).join(', ') + (retChosen.length ? ' / ' + retChosen.map(s => s.row_no + s.letter).join(', ') : ''),
+      type: out.flight.airline,
       paidVia: paymentMethod === 'wallet' ? 'Motion Pay' : paymentMethod.toUpperCase(),
-      ticketId: 'MTN-' + currentFlight.flight_no.replace(' ', '') + '-' + order.order.id.slice(-6).toUpperCase(),
+      ticketId: 'MTN-' + out.flight.flight_no.replace(' ', '') + '-' + order.order.id.slice(-6).toUpperCase(),
       seed: Math.floor(Math.random() * 9999), receiptId: order.receiptId, kind: 'BOARDING PASS',
     });
-    toast('Flight booked — boarding pass ready in My Tickets');
-    selectedSeats.clear(); await renderCabin();
+    toast(flightRoundTrip ? 'Round-trip booked — boarding passes ready in My Tickets' : 'Flight booked — boarding pass ready in My Tickets');
+    resetFlightSelection();
+    $('#flightResultsList').innerHTML = '';
   } catch (err) { toast(err.message, true); }
-  finally { btn.disabled = false; renderFare(); await refreshWalletPill(); }
+  finally { btn.disabled = false; await refreshWalletPill(); }
+});
+
+/* =========================================================
+   BUS — real dated departures, single-leg seat map
+   ========================================================= */
+const BUS_COLORS = ['#0b6e6e', '#dd3a24', '#141414', '#5b7fc7'];
+let busTrip = null, busSeats = [], busChosen = new Set();
+
+async function loadBusRoutes() {
+  try {
+    const { trips } = await api('/bus');
+    const cities = [...new Set(trips.flatMap(t => [t.origin, t.destination]))].sort();
+    const opts = cities.map(c => `<option value="${c}">${c}</option>`).join('');
+    $('#busOrigin').innerHTML = opts;
+    $('#busDestination').innerHTML = opts;
+    if (cities.includes('Nairobi')) $('#busOrigin').value = 'Nairobi';
+    if (cities.includes('Mombasa')) $('#busDestination').value = 'Mombasa';
+    await searchBuses();
+  } catch (err) { $('#busResultsList').innerHTML = errBoxHTML(err); }
+}
+$('#busSearchBtn').addEventListener('click', () => { resetBusSelection(); searchBuses(); });
+function resetBusSelection() {
+  busTrip = null; busChosen.clear();
+  $('#busRouteBar').classList.add('hidden');
+  $('#busLayout').classList.add('hidden');
+}
+async function searchBuses() {
+  const origin = $('#busOrigin').value, destination = $('#busDestination').value, date = $('#busDate').value;
+  try {
+    const { trips } = await api(`/bus?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&date=${date}`);
+    renderBusResults(trips);
+  } catch (err) { $('#busResultsList').innerHTML = errBoxHTML(err); }
+}
+function renderBusResults(list) {
+  if (!list.length) {
+    $('#busResultsList').innerHTML = `<div class="empty-state">No coaches match that route and date. Try another date or destination.</div>`;
+    return;
+  }
+  $('#busResultsList').innerHTML = list.map((t, i) => `
+    <button class="trip-result-card" data-id="${t.id}">
+      <span class="op-badge" style="background:${BUS_COLORS[i % BUS_COLORS.length]}">${t.operator[0]}</span>
+      <span><span class="rt">${t.departs_at} ${t.origin} → ${addMinutes(t.departs_at, t.duration_minutes)} ${t.destination}</span>
+      <span class="sub">${t.operator} ${t.coach_no} · ${t.trip_date} · ${t.duration_minutes} min</span></span>
+      <span class="price">${fmtKES(t.fare_cents)}<span>per seat</span></span>
+      <span style="font-size:18px;color:var(--motion-teal)">→</span>
+    </button>`).join('');
+  $('#busResultsList').onclick = e => {
+    const btn = e.target.closest('[data-id]'); if (!btn) return;
+    selectBusTrip(list.find(t => t.id === btn.dataset.id));
+  };
+}
+async function selectBusTrip(trip) {
+  busTrip = trip; busChosen.clear();
+  $('#busRouteBar').classList.remove('hidden');
+  $('#busLayout').classList.remove('hidden');
+  $('#busRouteBar').innerHTML = `
+    <div class="leg"><div><div class="city">${trip.origin}</div><div class="sub">DEPARTS ${trip.departs_at}</div></div>
+    <svg width="26" height="14" viewBox="0 0 26 14" fill="none"><path d="M1 7h22M17 1l6 6-6 6" stroke="#fffcf7" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div><div class="city">${trip.destination}</div><div class="sub">ARRIVES ${addMinutes(trip.departs_at, trip.duration_minutes)}</div></div></div>
+    <div class="meta">${trip.operator} · ${trip.coach_no}<br>${trip.trip_date} · ${trip.duration_minutes} min</div>`;
+  await renderBusCabin();
+  renderBusFare();
+}
+async function renderBusCabin() {
+  const { seats } = await api(`/bus/${busTrip.id}/seats`);
+  busSeats = seats;
+  const byRow = {};
+  seats.forEach(s => { (byRow[s.row_no] = byRow[s.row_no] || []).push(s); });
+  let html = '<div class="plane-nose"></div>';
+  Object.keys(byRow).sort((a, b) => a - b).forEach(r => {
+    html += `<div class="seat-row"><span class="rownum">${r}</span>`;
+    byRow[r].sort((a, b) => a.letter.localeCompare(b.letter)).forEach((s, ci) => {
+      const cls = ['seat', s.status];
+      if (busChosen.has(s.id)) cls[1] = 'selected';
+      html += `<div class="${cls.join(' ')}" data-id="${s.id}">${s.letter}</div>`;
+      if (ci === 1) html += `<div class="seat aisle-gap"></div>`;
+    });
+    html += `</div>`;
+  });
+  $('#busCabin').innerHTML = html;
+}
+$('#busCabin').addEventListener('click', e => {
+  const el = e.target.closest('.seat:not(.aisle-gap)'); if (!el) return;
+  const seat = busSeats.find(s => s.id === el.dataset.id);
+  if (seat.status === 'booked') { el.classList.add('shake'); setTimeout(() => el.classList.remove('shake'), 300); return; }
+  if (busChosen.has(seat.id)) busChosen.delete(seat.id);
+  else { if (busChosen.size >= 9) { toast('Maximum 9 seats per booking', true); return; } busChosen.add(seat.id); }
+  renderBusCabin(); renderBusFare();
+});
+function renderBusFare() {
+  if (!busTrip) return;
+  const chosen = [...busChosen].map(id => busSeats.find(s => s.id === id));
+  const base = chosen.length * busTrip.fare_cents;
+  $('#busFareLines').innerHTML = `
+    <div class="fare-line"><span>Fare (${chosen.length} seat${chosen.length !== 1 ? 's' : ''})</span><span>${fmtKES(base)}</span></div>
+    <div class="fare-line"><span>Seats</span><span>${chosen.map(s => s.row_no + s.letter).join(', ') || '—'}</span></div>`;
+  $('#busFareTotal').textContent = fmtKES(base);
+  const btn = $('#busPayBtn');
+  btn.disabled = chosen.length === 0;
+  btn.textContent = chosen.length ? `Pay ${fmtKES(base)} with Motion Pay` : 'Select seats to continue';
+}
+$('#busPayMethod').addEventListener('change', () => {
+  $('#busPayerRefField').classList.toggle('hidden', $('#busPayMethod').value === 'wallet');
+});
+$('#busPayBtn').addEventListener('click', async () => {
+  if (!buyerDetailsValid('bus')) return toast('Fill in passenger name, phone, and email first', true);
+  const paymentMethod = $('#busPayMethod').value;
+  const payerRef = paymentMethod === 'wallet' ? session.user.id : ($('#busPayerRef').value.trim() || '254712345678');
+  const buyer = readBuyerDetails('bus');
+  const btn = $('#busPayBtn');
+  try {
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    const chosen = [...busChosen].map(id => busSeats.find(s => s.id === id));
+    const order = await api('/bus/checkout', {
+      method: 'POST', headers: { 'Idempotency-Key': 'bus-' + Date.now() },
+      body: JSON.stringify({ tripId: busTrip.id, seatIds: [...busChosen], paymentMethod, payerRef, ...buyer }),
+    });
+    saveTicket({
+      title: `${busTrip.origin} → ${busTrip.destination}`,
+      sub: `${busTrip.trip_date.toUpperCase()} · ${busTrip.operator} ${busTrip.coach_no} · DEPARTS ${busTrip.departs_at}`,
+      holder: buyer.buyerName, section: chosen.map(s => s.row_no + s.letter).join(', '), type: busTrip.operator,
+      paidVia: paymentMethod === 'wallet' ? 'Motion Pay' : paymentMethod.toUpperCase(),
+      ticketId: 'MTN-' + busTrip.coach_no.replace(/\s/g, '') + '-' + order.order.id.slice(-6).toUpperCase(),
+      seed: Math.floor(Math.random() * 9999), receiptId: order.receiptId, kind: 'BUS TICKET',
+    });
+    toast('Bus booked — ticket ready in My Tickets');
+    resetBusSelection(); $('#busResultsList').innerHTML = '';
+  } catch (err) { toast(err.message, true); }
+  finally { btn.disabled = false; await refreshWalletPill(); }
+});
+
+/* =========================================================
+   SGR — real dated departures, First Class / Economy seat map
+   ========================================================= */
+let sgrTrip = null, sgrSeats = [], sgrChosen = new Set();
+
+async function loadSgrRoutes() {
+  try {
+    const { trips } = await api('/sgr');
+    const cities = [...new Set(trips.flatMap(t => [t.origin, t.destination]))].sort();
+    const opts = cities.map(c => `<option value="${c}">${c}</option>`).join('');
+    $('#sgrOrigin').innerHTML = opts;
+    $('#sgrDestination').innerHTML = opts;
+    if (cities.includes('Nairobi Terminus')) $('#sgrOrigin').value = 'Nairobi Terminus';
+    if (cities.includes('Mombasa Terminus')) $('#sgrDestination').value = 'Mombasa Terminus';
+    await searchSgr();
+  } catch (err) { $('#sgrResultsList').innerHTML = errBoxHTML(err); }
+}
+$('#sgrSearchBtn').addEventListener('click', () => { resetSgrSelection(); searchSgr(); });
+function resetSgrSelection() {
+  sgrTrip = null; sgrChosen.clear();
+  $('#sgrRouteBar').classList.add('hidden');
+  $('#sgrLayout').classList.add('hidden');
+}
+async function searchSgr() {
+  const origin = $('#sgrOrigin').value, destination = $('#sgrDestination').value, date = $('#sgrDate').value;
+  try {
+    const { trips } = await api(`/sgr?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&date=${date}`);
+    renderSgrResults(trips);
+  } catch (err) { $('#sgrResultsList').innerHTML = errBoxHTML(err); }
+}
+function renderSgrResults(list) {
+  if (!list.length) {
+    $('#sgrResultsList').innerHTML = `<div class="empty-state">No trains match that route and date. Try another date or destination.</div>`;
+    return;
+  }
+  $('#sgrResultsList').innerHTML = list.map((t) => `
+    <button class="trip-result-card" data-id="${t.id}">
+      <span class="op-badge" style="background:#0b6e6e">${t.train_no.replace(/\D/g, '') || 'ME'}</span>
+      <span><span class="rt">${t.departs_at} ${t.origin} → ${addMinutes(t.departs_at, t.duration_minutes)} ${t.destination}</span>
+      <span class="sub">${t.train_no} · ${t.trip_date} · ${t.duration_minutes} min</span></span>
+      <span class="price">${fmtKES(t.economy_fare_cents)}<span>economy · per seat</span></span>
+      <span style="font-size:18px;color:var(--motion-teal)">→</span>
+    </button>`).join('');
+  $('#sgrResultsList').onclick = e => {
+    const btn = e.target.closest('[data-id]'); if (!btn) return;
+    selectSgrTrip(list.find(t => t.id === btn.dataset.id));
+  };
+}
+async function selectSgrTrip(trip) {
+  sgrTrip = trip; sgrChosen.clear();
+  $('#sgrRouteBar').classList.remove('hidden');
+  $('#sgrLayout').classList.remove('hidden');
+  $('#sgrRouteBar').innerHTML = `
+    <div class="leg"><div><div class="city">${trip.origin}</div><div class="sub">DEPARTS ${trip.departs_at}</div></div>
+    <svg width="26" height="14" viewBox="0 0 26 14" fill="none"><path d="M1 7h22M17 1l6 6-6 6" stroke="#fffcf7" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div><div class="city">${trip.destination}</div><div class="sub">ARRIVES ${addMinutes(trip.departs_at, trip.duration_minutes)}</div></div></div>
+    <div class="meta">${trip.train_no}<br>${trip.trip_date} · ${trip.duration_minutes} min</div>`;
+  await renderSgrCabin();
+  renderSgrFare();
+}
+async function renderSgrCabin() {
+  const { seats } = await api(`/sgr/${sgrTrip.id}/seats`);
+  sgrSeats = seats;
+  const byRow = {};
+  seats.forEach(s => { (byRow[s.row_no] = byRow[s.row_no] || []).push(s); });
+  const businessRows = seats.some(s => s.cabin_class === 'business') ? Math.max(...seats.filter(s => s.cabin_class === 'business').map(s => s.row_no)) : 0;
+  let html = '<div class="plane-nose"></div>';
+  Object.keys(byRow).sort((a, b) => a - b).forEach(r => {
+    html += `<div class="seat-row"><span class="rownum">${r}</span>`;
+    byRow[r].sort((a, b) => a.letter.localeCompare(b.letter)).forEach((s, ci) => {
+      const cls = ['seat', s.status, s.cabin_class];
+      if (sgrChosen.has(s.id)) cls[1] = 'selected';
+      html += `<div class="${cls.join(' ')}" data-id="${s.id}">${s.letter}</div>`;
+      if (ci === 2) html += `<div class="seat aisle-gap"></div>`;
+    });
+    html += `</div>`;
+    if (businessRows && +r === businessRows) html += `<div style="height:10px;border-bottom:1px dashed var(--line);margin:4px 30px 10px"></div>`;
+  });
+  $('#sgrCabin').innerHTML = html;
+}
+$('#sgrCabin').addEventListener('click', e => {
+  const el = e.target.closest('.seat:not(.aisle-gap)'); if (!el) return;
+  const seat = sgrSeats.find(s => s.id === el.dataset.id);
+  if (seat.status === 'booked') { el.classList.add('shake'); setTimeout(() => el.classList.remove('shake'), 300); return; }
+  if (sgrChosen.has(seat.id)) sgrChosen.delete(seat.id);
+  else { if (sgrChosen.size >= 9) { toast('Maximum 9 seats per booking', true); return; } sgrChosen.add(seat.id); }
+  renderSgrCabin(); renderSgrFare();
+});
+function renderSgrFare() {
+  if (!sgrTrip) return;
+  const chosen = [...sgrChosen].map(id => sgrSeats.find(s => s.id === id));
+  const base = chosen.reduce((s, seat) => s + (seat.cabin_class === 'business' ? sgrTrip.first_class_fare_cents : sgrTrip.economy_fare_cents), 0);
+  $('#sgrFareLines').innerHTML = `
+    <div class="fare-line"><span>Fare (${chosen.length} seat${chosen.length !== 1 ? 's' : ''})</span><span>${fmtKES(base)}</span></div>
+    <div class="fare-line"><span>Seats</span><span>${chosen.map(s => s.row_no + s.letter).join(', ') || '—'}</span></div>`;
+  $('#sgrFareTotal').textContent = fmtKES(base);
+  const btn = $('#sgrPayBtn');
+  btn.disabled = chosen.length === 0;
+  btn.textContent = chosen.length ? `Pay ${fmtKES(base)} with Motion Pay` : 'Select seats to continue';
+}
+$('#sgrPayMethod').addEventListener('change', () => {
+  $('#sgrPayerRefField').classList.toggle('hidden', $('#sgrPayMethod').value === 'wallet');
+});
+$('#sgrPayBtn').addEventListener('click', async () => {
+  if (!buyerDetailsValid('sgr')) return toast('Fill in passenger name, phone, and email first', true);
+  const paymentMethod = $('#sgrPayMethod').value;
+  const payerRef = paymentMethod === 'wallet' ? session.user.id : ($('#sgrPayerRef').value.trim() || '254712345678');
+  const buyer = readBuyerDetails('sgr');
+  const btn = $('#sgrPayBtn');
+  try {
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    const chosen = [...sgrChosen].map(id => sgrSeats.find(s => s.id === id));
+    const order = await api('/sgr/checkout', {
+      method: 'POST', headers: { 'Idempotency-Key': 'sgr-' + Date.now() },
+      body: JSON.stringify({ tripId: sgrTrip.id, seatIds: [...sgrChosen], paymentMethod, payerRef, ...buyer }),
+    });
+    saveTicket({
+      title: `${sgrTrip.origin} → ${sgrTrip.destination}`,
+      sub: `${sgrTrip.trip_date.toUpperCase()} · ${sgrTrip.train_no} · DEPARTS ${sgrTrip.departs_at}`,
+      holder: buyer.buyerName, section: chosen.map(s => s.row_no + s.letter).join(', '), type: 'Kenya Railways',
+      paidVia: paymentMethod === 'wallet' ? 'Motion Pay' : paymentMethod.toUpperCase(),
+      ticketId: 'MTN-' + sgrTrip.train_no.replace(/\s/g, '') + '-' + order.order.id.slice(-6).toUpperCase(),
+      seed: Math.floor(Math.random() * 9999), receiptId: order.receiptId, kind: 'SGR TICKET',
+    });
+    toast('SGR ticket booked — ready in My Tickets');
+    resetSgrSelection(); $('#sgrResultsList').innerHTML = '';
+  } catch (err) { toast(err.message, true); }
+  finally { btn.disabled = false; await refreshWalletPill(); }
 });
 
 /* =========================================================

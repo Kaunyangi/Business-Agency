@@ -106,6 +106,48 @@ CREATE TABLE IF NOT EXISTS flight_seats (
   status TEXT NOT NULL DEFAULT 'available' -- available | held | booked
 );
 
+CREATE TABLE IF NOT EXISTS bus_trips (
+  id TEXT PRIMARY KEY,
+  operator TEXT NOT NULL,
+  coach_no TEXT NOT NULL,
+  origin TEXT NOT NULL,
+  destination TEXT NOT NULL,
+  trip_date TEXT NOT NULL,
+  departs_at TEXT NOT NULL,
+  duration_minutes INTEGER NOT NULL,
+  fare_cents INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS bus_seats (
+  id TEXT PRIMARY KEY,
+  trip_id TEXT NOT NULL REFERENCES bus_trips(id),
+  row_no INTEGER NOT NULL,
+  letter TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'available' -- available | held | booked
+);
+
+CREATE TABLE IF NOT EXISTS sgr_trips (
+  id TEXT PRIMARY KEY,
+  operator TEXT NOT NULL DEFAULT 'Kenya Railways',
+  train_no TEXT NOT NULL,
+  origin TEXT NOT NULL,
+  destination TEXT NOT NULL,
+  trip_date TEXT NOT NULL,
+  departs_at TEXT NOT NULL,
+  duration_minutes INTEGER NOT NULL,
+  economy_fare_cents INTEGER NOT NULL,
+  first_class_fare_cents INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS sgr_seats (
+  id TEXT PRIMARY KEY,
+  trip_id TEXT NOT NULL REFERENCES sgr_trips(id),
+  row_no INTEGER NOT NULL,
+  letter TEXT NOT NULL,
+  cabin_class TEXT NOT NULL DEFAULT 'economy',
+  status TEXT NOT NULL DEFAULT 'available' -- available | held | booked
+);
+
 CREATE TABLE IF NOT EXISTS properties (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,

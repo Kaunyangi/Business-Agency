@@ -442,10 +442,25 @@
     </section>
 
     <section class="panel" id="panel-flight">
-      <div class="panel-head"><h1>Book a flight</h1><p>Flight-only checkout against the live seat map for each carrier — pick your own seats.</p></div>
-      <div class="airline-tabs" id="airlineTabs"><span class="hint">Loading airlines…</span></div>
-      <div class="route-bar" id="routeBar"></div>
-      <div class="flight-layout">
+      <div class="panel-head"><h1>Book a flight</h1><p>Real dated departures against the live seat map for each carrier — search a date, pick one-way or round-trip, choose your own seats.</p></div>
+      <div class="searchbar-grid card" id="flightSearchBar">
+        <div class="field"><label class="field-label">From</label><select class="text-input" id="flightOrigin"></select></div>
+        <div class="field"><label class="field-label">To</label><select class="text-input" id="flightDestination"></select></div>
+        <div class="field"><label class="field-label">Depart</label><input class="text-input" type="date" id="flightDate" value="2026-09-05"></div>
+        <div class="field trip-toggle-field">
+          <label class="field-label">Trip type</label>
+          <div class="trip-toggle">
+            <button class="trip-btn active" id="tripOneWay" data-mode="oneway">One-way</button>
+            <button class="trip-btn" id="tripRoundTrip" data-mode="roundtrip">Round-trip</button>
+          </div>
+        </div>
+        <div class="field hidden" id="flightReturnDateField"><label class="field-label">Return</label><input class="text-input" type="date" id="flightReturnDate" value="2026-09-08"></div>
+        <button class="btn-primary" id="flightSearchBtn" style="align-self:end">Search flights</button>
+      </div>
+      <div class="flight-step-label hidden" id="flightStepLabel"></div>
+      <div id="flightResultsList"></div>
+      <div class="route-bar hidden" id="routeBar"></div>
+      <div class="flight-layout hidden" id="flightLayout">
         <div>
           <div class="cabin" id="cabin"></div>
           <div class="cabin-legend">
@@ -468,6 +483,79 @@
           </div>
           <div class="field hidden" id="flightPayerRefField"><label class="field-label">Payer reference</label><input class="text-input" id="flightPayerRef" placeholder="254712345678"></div>
           <button class="btn-primary" id="flightPayBtn">Select seats to continue</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-bus">
+      <div class="panel-head"><h1>Book a bus</h1><p>Tahmeed, Mash Poa, Dreamline, Buscar — real dated departures across East Africa. Pick a route and date, choose your seat.</p></div>
+      <div class="searchbar-grid card" id="busSearchBar">
+        <div class="field"><label class="field-label">From</label><select class="text-input" id="busOrigin"></select></div>
+        <div class="field"><label class="field-label">To</label><select class="text-input" id="busDestination"></select></div>
+        <div class="field"><label class="field-label">Depart</label><input class="text-input" type="date" id="busDate" value="2026-09-05"></div>
+        <button class="btn-primary" id="busSearchBtn" style="align-self:end">Search buses</button>
+      </div>
+      <div id="busResultsList"></div>
+      <div class="route-bar hidden" id="busRouteBar"></div>
+      <div class="flight-layout hidden" id="busLayout">
+        <div>
+          <div class="cabin" id="busCabin"></div>
+          <div class="cabin-legend">
+            <span><i style="background:#fffcf7;border-color:var(--line)"></i>Available</span>
+            <span><i style="background:#0b6e6e;border-color:#0b6e6e"></i>Selected</span>
+            <span><i style="background:#e4ded0;border-color:#e4ded0"></i>Booked</span>
+          </div>
+        </div>
+        <div class="fare-box card">
+          <h3>Fare summary</h3>
+          <div id="busFareLines"></div>
+          <div class="fare-total"><span class="lbl">Total</span><span class="val" id="busFareTotal">KES 0</span></div>
+          <div class="field" style="margin-top:14px"><label class="field-label">Passenger name</label><input class="text-input" id="busBuyerName" placeholder="As it should appear on the ticket"></div>
+          <div class="field"><label class="field-label">Phone</label><input class="text-input" id="busBuyerPhone" placeholder="254712345678"></div>
+          <div class="field"><label class="field-label">Email</label><input class="text-input" id="busBuyerEmail" placeholder="you@example.com"></div>
+          <div class="field"><label class="field-label">ID no. (optional)</label><input class="text-input" id="busBuyerId" placeholder="Optional"></div>
+          <div class="field" style="margin-top:14px"><label class="field-label">Pay with</label>
+            <select class="text-input" id="busPayMethod"><option value="wallet">Motion Pay wallet</option><option value="mpesa">M-Pesa</option><option value="card">Card</option></select>
+          </div>
+          <div class="field hidden" id="busPayerRefField"><label class="field-label">Payer reference</label><input class="text-input" id="busPayerRef" placeholder="254712345678"></div>
+          <button class="btn-primary" id="busPayBtn">Select seats to continue</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-sgr">
+      <div class="panel-head"><h1>Book SGR</h1><p>Madaraka Express — First Class & Economy, Nairobi ⇄ Mombasa, plus the Nairobi ⇄ Naivasha inter-county extension.</p></div>
+      <div class="searchbar-grid card" id="sgrSearchBar">
+        <div class="field"><label class="field-label">From</label><select class="text-input" id="sgrOrigin"></select></div>
+        <div class="field"><label class="field-label">To</label><select class="text-input" id="sgrDestination"></select></div>
+        <div class="field"><label class="field-label">Depart</label><input class="text-input" type="date" id="sgrDate" value="2026-09-05"></div>
+        <button class="btn-primary" id="sgrSearchBtn" style="align-self:end">Search SGR</button>
+      </div>
+      <div id="sgrResultsList"></div>
+      <div class="route-bar hidden" id="sgrRouteBar"></div>
+      <div class="flight-layout hidden" id="sgrLayout">
+        <div>
+          <div class="cabin" id="sgrCabin"></div>
+          <div class="cabin-legend">
+            <span><i style="background:#fffcf7;border-color:var(--line)"></i>Available</span>
+            <span><i style="background:#0b6e6e;border-color:#0b6e6e"></i>Selected</span>
+            <span><i style="background:#e4ded0;border-color:#e4ded0"></i>Booked</span>
+            <span><i style="border-color:#5b7fc7"></i>First Class</span>
+          </div>
+        </div>
+        <div class="fare-box card">
+          <h3>Fare summary</h3>
+          <div id="sgrFareLines"></div>
+          <div class="fare-total"><span class="lbl">Total</span><span class="val" id="sgrFareTotal">KES 0</span></div>
+          <div class="field" style="margin-top:14px"><label class="field-label">Passenger name</label><input class="text-input" id="sgrBuyerName" placeholder="As it should appear on the ticket"></div>
+          <div class="field"><label class="field-label">Phone</label><input class="text-input" id="sgrBuyerPhone" placeholder="254712345678"></div>
+          <div class="field"><label class="field-label">Email</label><input class="text-input" id="sgrBuyerEmail" placeholder="you@example.com"></div>
+          <div class="field"><label class="field-label">ID no. (optional)</label><input class="text-input" id="sgrBuyerId" placeholder="Optional"></div>
+          <div class="field" style="margin-top:14px"><label class="field-label">Pay with</label>
+            <select class="text-input" id="sgrPayMethod"><option value="wallet">Motion Pay wallet</option><option value="mpesa">M-Pesa</option><option value="card">Card</option></select>
+          </div>
+          <div class="field hidden" id="sgrPayerRefField"><label class="field-label">Payer reference</label><input class="text-input" id="sgrPayerRef" placeholder="254712345678"></div>
+          <button class="btn-primary" id="sgrPayBtn">Select seats to continue</button>
         </div>
       </div>
     </section>
