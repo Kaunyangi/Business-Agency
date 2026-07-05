@@ -108,7 +108,7 @@ nav.tabs button:not(.active):hover{background:var(--sand);}
 .hero-tag-trigger{
   border:1px solid rgba(255,252,247,0.3);background:transparent;color:var(--paper);
   padding:8px 16px;border-radius:100px;font-size:13px;font-family:var(--font-mono);letter-spacing:0.02em;
-  display:flex;align-items:center;gap:7px;
+  display:flex;align-items:center;gap:7px;text-decoration:none;
 }
 .hero-tag-trigger:hover{background:rgba(255,252,247,0.12);}
 .hero-tag-trigger svg{opacity:0.8;flex:none;}
