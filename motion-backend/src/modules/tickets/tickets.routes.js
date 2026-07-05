@@ -18,6 +18,10 @@ const checkoutSchema = z.object({
   items: z.array(z.object({ tierId: z.string(), quantity: z.number().int().positive() })).min(1),
   paymentMethod: z.enum(['mpesa', 'card', 'wallet']),
   payerRef: z.string().min(1),
+  buyerName: z.string().min(2).max(100),
+  buyerPhone: z.string().min(7).max(20),
+  buyerEmail: z.string().email(),
+  buyerIdNumber: z.string().max(40).optional(),
 });
 
 router.post('/checkout', idempotent, validate(checkoutSchema), async (req, res, next) => {
@@ -25,7 +29,7 @@ router.post('/checkout', idempotent, validate(checkoutSchema), async (req, res, 
     if (req.idempotentReplay) {
       return res.json({ order: req.idempotentReplay, replay: true });
     }
-    const { eventId, items, paymentMethod, payerRef } = req.body;
+    const { eventId, items, paymentMethod, payerRef, buyerName, buyerPhone, buyerEmail, buyerIdNumber } = req.body;
 
     // --- 1. Inventory hold + price calculation happens inside one write
     //     transaction so two simultaneous buyers can never oversell a tier
@@ -54,9 +58,9 @@ router.post('/checkout', idempotent, validate(checkoutSchema), async (req, res, 
       const totalCents = subtotalCents; // buyer pays subtotal; commission is deducted from organizer payout, not added on top
       const orderId = id('ord');
       db.prepare(
-        `INSERT INTO orders (id, user_id, order_type, status, subtotal_cents, commission_cents, fees_cents, total_cents, idempotency_key, created_at)
-         VALUES (?,?, 'ticket', 'pending', ?, ?, 0, ?, ?, datetime('now'))`
-      ).run(orderId, req.user.id, subtotalCents, commissionCents, totalCents, req.idempotencyKey || null);
+        `INSERT INTO orders (id, user_id, order_type, status, subtotal_cents, commission_cents, fees_cents, total_cents, idempotency_key, buyer_name, buyer_phone, buyer_email, buyer_id_number, created_at)
+         VALUES (?,?, 'ticket', 'pending', ?, ?, 0, ?, ?, ?, ?, ?, ?, datetime('now'))`
+      ).run(orderId, req.user.id, subtotalCents, commissionCents, totalCents, req.idempotencyKey || null, buyerName, buyerPhone, buyerEmail, buyerIdNumber || null);
 
       const insertItem = db.prepare(
         'INSERT INTO order_items (id, order_id, ref_type, ref_id, description, unit_price_cents, quantity, line_total_cents) VALUES (?,?,?,?,?,?,?,?)'

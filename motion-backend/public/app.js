@@ -228,13 +228,21 @@ $('#staysPreviewModal').addEventListener('click', e => { if (e.target.id === 'st
    AUTH MODAL
    ========================================================= */
 let authMode = 'login';
+function updateFreeToListNote() {
+  const role = $('#authRole').value;
+  $('#freeToListNote').classList.toggle('hidden', !(authMode === 'register' && (role === 'organizer' || role === 'host')));
+}
 function openAuthModal(mode) {
   authMode = mode || 'login';
   $$('.auth-tabs button').forEach(b => b.classList.toggle('active', b.dataset.mode === authMode));
   $('#roleField').classList.toggle('hidden', authMode !== 'register');
   $('#nameField').classList.toggle('hidden', authMode !== 'register');
+  $('#phoneField').classList.toggle('hidden', authMode !== 'register');
+  $('#termsField').classList.toggle('hidden', authMode !== 'register');
+  $('#authTerms').checked = false;
   $('#authSubmit').textContent = authMode === 'register' ? 'Create account' : 'Log in';
   $('#authError').innerHTML = '';
+  updateFreeToListNote();
   $('#authModal').classList.remove('hidden');
 }
 function closeAuthModal() { $('#authModal').classList.add('hidden'); }
@@ -245,18 +253,29 @@ $('#heroGetStartedBtn').addEventListener('click', () => openAuthModal('register'
 $('#authCloseBtn').addEventListener('click', closeAuthModal);
 $('#authModal').addEventListener('click', e => { if (e.target.id === 'authModal') closeAuthModal(); });
 $$('.auth-tabs button').forEach(b => b.addEventListener('click', () => openAuthModal(b.dataset.mode)));
+$('#authRole').addEventListener('change', updateFreeToListNote);
+
+$('#termsLink').addEventListener('click', e => { e.preventDefault(); $('#termsModal').classList.remove('hidden'); });
+$('#termsCloseBtn').addEventListener('click', () => $('#termsModal').classList.add('hidden'));
+$('#termsAcceptBtn').addEventListener('click', () => { $('#authTerms').checked = true; $('#termsModal').classList.add('hidden'); });
+$('#termsModal').addEventListener('click', e => { if (e.target.id === 'termsModal') $('#termsModal').classList.add('hidden'); });
 
 $('#authSubmit').addEventListener('click', async () => {
   $('#authError').innerHTML = '';
   const name = $('#authName').value.trim();
   const email = $('#authEmail').value.trim();
+  const phone = $('#authPhone').value.trim();
   const password = $('#authPassword').value;
   const role = $('#authRole').value;
   const btn = $('#authSubmit');
+  if (authMode === 'register' && !$('#authTerms').checked) {
+    $('#authError').innerHTML = '<div class="error-box">Please accept the Terms &amp; Conditions to continue.</div>';
+    return;
+  }
   try {
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
     const body = authMode === 'register'
-      ? await api('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password, role }) })
+      ? await api('/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password, phone, role, termsAccepted: true }) })
       : await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
     session = { token: body.token, user: body.user };
     localStorage.setItem('motion_token', body.token);
@@ -287,6 +306,7 @@ function tabsForRole(role) {
     { key: 'wallet', label: 'Motion Pay' },
     { key: 'tickets', label: 'My Tickets' },
   ];
+  if (role === 'host' || role === 'admin') tabs.unshift({ key: 'host', label: 'List a Stay' });
   if (role === 'organizer' || role === 'admin') tabs.unshift({ key: 'organizer', label: 'Organizer Studio' });
   if (role === 'admin') tabs.push({ key: 'admin', label: 'Revenue Admin' });
   return tabs;
@@ -303,6 +323,7 @@ function loadPanel(key) {
   if (key === 'wallet') loadWallet();
   if (key === 'admin') { loadRules(); loadSummary(); }
   if (key === 'organizer') loadMyEvents();
+  if (key === 'host') loadMyProperties();
   if (key === 'tickets') renderMyTickets();
 }
 document.addEventListener('click', e => {
@@ -331,8 +352,32 @@ async function bootApp() {
   renderTabs();
   await refreshWalletPill();
   if (session.user.role === 'organizer' || session.user.role === 'admin') renderTierEditor();
+  prefillBuyerDetails();
   loadAirlines();
   loadProperties();
+}
+
+/* =========================================================
+   BUYER DETAILS — shared across ticket/flight/stay checkout
+   ========================================================= */
+function prefillBuyerDetails() {
+  ['ticket', 'flight', 'stay'].forEach(prefix => {
+    $('#' + prefix + 'BuyerName').value = session.user.name || '';
+    $('#' + prefix + 'BuyerPhone').value = session.user.phone || '';
+    $('#' + prefix + 'BuyerEmail').value = session.user.email || '';
+  });
+}
+function readBuyerDetails(prefix) {
+  return {
+    buyerName: $('#' + prefix + 'BuyerName').value.trim(),
+    buyerPhone: $('#' + prefix + 'BuyerPhone').value.trim(),
+    buyerEmail: $('#' + prefix + 'BuyerEmail').value.trim(),
+    buyerIdNumber: $('#' + prefix + 'BuyerId').value.trim() || undefined,
+  };
+}
+function buyerDetailsValid(prefix) {
+  const d = readBuyerDetails(prefix);
+  return !!(d.buyerName && d.buyerPhone && d.buyerEmail);
 }
 
 /* =========================================================
@@ -477,6 +522,101 @@ async function loadMyEvents() {
 }
 
 /* =========================================================
+   HOST STUDIO — "List a Stay"
+   ========================================================= */
+let roomSeq = 0;
+let hostRooms = [{ id: ++roomSeq, name: 'Garden Room', price: 6500, capacity: 2, tags: 'Fan, Garden view, Breakfast' }];
+let hostState = { name: '', type: 'Villa', location: '', country: '' };
+
+$('#hCountry').innerHTML = '<option value="">Select country</option>' + AFRICAN_COUNTRIES.map(([, name]) => `<option>${esc(name)}</option>`).join('');
+
+function renderHostRoomEditor() {
+  $('#hRoomList').innerHTML = hostRooms.map(r => `
+    <div class="tier-row" data-id="${r.id}">
+      <input class="text-input room-name" value="${esc(r.name)}" placeholder="Room name">
+      <input class="text-input room-price" type="number" min="0" value="${r.price}" placeholder="Price/night">
+      <input class="text-input room-cap" type="number" min="1" value="${r.capacity}" placeholder="Sleeps">
+      <button class="tier-remove" title="Remove">✕</button>
+    </div>
+    <div class="field" style="margin:-6px 0 10px"><input class="text-input room-tags" data-id="${r.id}" value="${esc(r.tags)}" placeholder="Amenities, comma separated (e.g. AC, Sea view, Breakfast)"></div>`).join('');
+  renderHostPreview();
+}
+$('#hRoomList').addEventListener('input', e => {
+  const row = e.target.closest('[data-id]'); if (!row) return;
+  const r = hostRooms.find(x => x.id === +row.dataset.id); if (!r) return;
+  if (e.target.classList.contains('room-name')) r.name = e.target.value || 'Untitled room';
+  if (e.target.classList.contains('room-price')) r.price = +e.target.value || 0;
+  if (e.target.classList.contains('room-cap')) r.capacity = +e.target.value || 1;
+  if (e.target.classList.contains('room-tags')) r.tags = e.target.value;
+  renderHostPreview();
+});
+$('#hRoomList').addEventListener('click', e => {
+  if (!e.target.classList.contains('tier-remove')) return;
+  const row = e.target.closest('[data-id]');
+  hostRooms = hostRooms.filter(r => r.id !== +row.dataset.id);
+  renderHostRoomEditor();
+});
+$('#hAddRoomBtn').addEventListener('click', () => {
+  hostRooms.push({ id: ++roomSeq, name: 'New room', price: 5000, capacity: 2, tags: '' });
+  renderHostRoomEditor();
+});
+
+['hName', 'hType', 'hLocation', 'hCountry'].forEach(id => {
+  $('#' + id).addEventListener('input', () => {
+    hostState.name = $('#hName').value;
+    hostState.type = $('#hType').value;
+    hostState.location = $('#hLocation').value;
+    hostState.country = $('#hCountry').value;
+    renderHostPreview();
+  });
+});
+
+function renderHostPreview() {
+  $('#hPreviewType').textContent = hostState.type;
+  $('#hPreviewTitle').textContent = hostState.name || 'Untitled property';
+  $('#hPreviewMeta').textContent = `${hostState.location || 'City TBC'}${hostState.country ? ', ' + hostState.country : ''}`;
+  $('#hPreviewRooms').innerHTML = hostRooms.map(r => `
+    <div class="buy-row"><div><div class="name">${esc(r.name)}</div><div class="avail">Sleeps ${r.capacity}</div></div><div class="price">${fmtKESraw(r.price)}/night</div></div>
+  `).join('') || '<div class="buy-row"><span class="avail">Add a room to preview</span></div>';
+  $('#hPublishBtn').disabled = !(hostState.name && hostState.location && hostState.country && hostRooms.length > 0 && hostRooms.every(r => r.name && r.price > 0));
+}
+renderHostRoomEditor();
+
+$('#hPublishBtn').addEventListener('click', async () => {
+  $('#hostError').innerHTML = '';
+  const payload = {
+    name: hostState.name, location: hostState.location, country: hostState.country, type: hostState.type,
+    rooms: hostRooms.map(r => ({
+      name: r.name, price_cents: Math.round(r.price * 100), capacity: r.capacity,
+      tags: r.tags.split(',').map(t => t.trim()).filter(Boolean),
+    })),
+  };
+  const btn = $('#hPublishBtn');
+  try {
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    await api('/stays', { method: 'POST', body: JSON.stringify(payload) });
+    toast('Stay published to the live catalogue');
+    loadMyProperties(); loadProperties();
+  } catch (err) {
+    $('#hostError').innerHTML = errBoxHTML(err);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Publish stay'; renderHostPreview();
+  }
+});
+
+async function loadMyProperties() {
+  try {
+    const { properties } = await api('/stays/mine/dashboard');
+    $('#myProperties').innerHTML = properties.length ? properties.map(p => `
+      <div class="event-card">
+        <b>${esc(p.name)}</b>
+        <div class="meta">${esc(p.type)} · ${esc(p.location)}${p.country ? ', ' + esc(p.country) : ''} · ${p.bookingsCount} booking${p.bookingsCount !== 1 ? 's' : ''}</div>
+        ${p.rooms.map(r => `<div class="hint">${esc(r.name)}: ${fmtKES(r.price_cents)}/night</div>`).join('')}
+      </div>`).join('') : '<span class="hint">No stays listed yet.</span>';
+  } catch (err) { $('#myProperties').innerHTML = errBoxHTML(err); }
+}
+
+/* =========================================================
    BUY TICKETS ("What's on")
    ========================================================= */
 let eventsCache = [];
@@ -546,22 +686,24 @@ document.addEventListener('click', e => {
 async function purchaseTickets(eventId, btnEl) {
   const items = Object.entries(eventCart[eventId] || {}).filter(([, q]) => q > 0).map(([tierId, quantity]) => ({ tierId, quantity }));
   if (!items.length) return toast('Select at least one ticket', true);
+  if (!buyerDetailsValid('ticket')) return toast('Fill in your name, phone, and email above first', true);
   const paymentMethod = document.getElementById('pay-' + eventId).value;
   const payerRef = paymentMethod === 'wallet' ? session.user.id : (document.getElementById('ref-' + eventId).value.trim() || '254712345678');
+  const buyer = readBuyerDetails('ticket');
   const event = eventsCache.find(e => e.id === eventId);
   try {
     btnEl.disabled = true; btnEl.innerHTML = '<span class="spinner" style="border-top-color:#0b6e6e"></span>';
     const order = await api('/tickets/checkout', {
       method: 'POST',
       headers: { 'Idempotency-Key': 'ticket-' + eventId + '-' + Date.now() },
-      body: JSON.stringify({ eventId, items, paymentMethod, payerRef }),
+      body: JSON.stringify({ eventId, items, paymentMethod, payerRef, ...buyer }),
     });
     const tierNames = items.map(it => event.tiers.find(t => t.id === it.tierId)?.name).filter(Boolean).join(', ');
     const dateStr = event.event_date ? new Date(event.event_date + 'T00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() : 'DATE TBC';
     saveTicket({
       title: event.name,
       sub: `${dateStr}${event.gate_time ? ' · GATES ' + event.gate_time.toUpperCase() : ''} · ${(event.venue || '').toUpperCase()}`,
-      holder: session.user.name, section: tierNames, type: tierNames, paidVia: paymentMethod === 'wallet' ? 'Motion Pay' : paymentMethod.toUpperCase(),
+      holder: buyer.buyerName, section: tierNames, type: tierNames, paidVia: paymentMethod === 'wallet' ? 'Motion Pay' : paymentMethod.toUpperCase(),
       ticketId: 'MTN-' + order.order.id.slice(-8).toUpperCase(), seed: Math.floor(Math.random() * 9999),
       receiptId: order.receiptId,
     });
@@ -667,20 +809,22 @@ $('#flightPayMethod').addEventListener('change', () => {
   $('#flightPayerRefField').classList.toggle('hidden', $('#flightPayMethod').value === 'wallet');
 });
 $('#flightPayBtn').addEventListener('click', async () => {
+  if (!buyerDetailsValid('flight')) return toast('Fill in passenger name, phone, and email first', true);
   const paymentMethod = $('#flightPayMethod').value;
   const payerRef = paymentMethod === 'wallet' ? session.user.id : ($('#flightPayerRef').value.trim() || '254712345678');
+  const buyer = readBuyerDetails('flight');
   const btn = $('#flightPayBtn');
   try {
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
     const chosen = [...selectedSeats].map(id => currentFlight.seats.find(s => s.id === id));
     const order = await api('/flights/checkout', {
       method: 'POST', headers: { 'Idempotency-Key': 'flight-' + Date.now() },
-      body: JSON.stringify({ flightId: currentFlight.id, seatIds: [...selectedSeats], paymentMethod, payerRef }),
+      body: JSON.stringify({ flightId: currentFlight.id, seatIds: [...selectedSeats], paymentMethod, payerRef, ...buyer }),
     });
     saveTicket({
       title: `${currentFlight.origin} → ${currentFlight.destination}`,
       sub: `${currentFlight.flight_date.toUpperCase()} · ${currentFlight.flight_no} · DEPARTS ${currentFlight.departs_at}`,
-      holder: session.user.name, section: chosen.map(s => s.row_no + s.letter).join(', '), type: currentFlight.airline,
+      holder: buyer.buyerName, section: chosen.map(s => s.row_no + s.letter).join(', '), type: currentFlight.airline,
       paidVia: paymentMethod === 'wallet' ? 'Motion Pay' : paymentMethod.toUpperCase(),
       ticketId: 'MTN-' + currentFlight.flight_no.replace(' ', '') + '-' + order.order.id.slice(-6).toUpperCase(),
       seed: Math.floor(Math.random() * 9999), receiptId: order.receiptId, kind: 'BOARDING PASS',
@@ -776,7 +920,7 @@ function computeStayTotal() {
   const room = (prop && selectedRoom !== null) ? prop.rooms[selectedRoom] : null;
   $('#selectedRoomLabel').textContent = room ? room.name : 'No room selected';
   const subtotal = room ? room.price_cents * n : 0;
-  const fee = subtotal ? Math.round(subtotal * 0.06) : 0;
+  const fee = subtotal ? Math.round(subtotal * 0.18) : 0;
   $('#stayRoomTotal').textContent = fmtKES(subtotal);
   $('#stayFee').textContent = fmtKES(fee);
   $('#stayTotal').textContent = fmtKES(subtotal + fee);
@@ -799,21 +943,23 @@ $('#stayPayMethod').addEventListener('change', () => {
 })();
 
 $('#stayPayBtn').addEventListener('click', async () => {
+  if (!buyerDetailsValid('stay')) return toast('Fill in guest name, phone, and email first', true);
   const p = filteredProperties[selectedPropertyIdx]; const room = p.rooms[selectedRoom];
   const paymentMethod = $('#stayPayMethod').value;
   const payerRef = paymentMethod === 'wallet' ? session.user.id : ($('#stayPayerRef').value.trim() || '254712345678');
+  const buyer = readBuyerDetails('stay');
   const n = nights();
   const btn = $('#stayPayBtn');
   try {
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
     const order = await api('/stays/checkout', {
       method: 'POST', headers: { 'Idempotency-Key': 'stay-' + Date.now() },
-      body: JSON.stringify({ roomId: room.id, checkin: $('#checkinDate').value, checkout: $('#checkoutDate').value, guests: +$('#guestCount').textContent, paymentMethod, payerRef }),
+      body: JSON.stringify({ roomId: room.id, checkin: $('#checkinDate').value, checkout: $('#checkoutDate').value, guests: +$('#guestCount').textContent, paymentMethod, payerRef, ...buyer }),
     });
     saveTicket({
       title: p.name + ' — ' + room.name,
       sub: `${$('#checkinDate').value} → ${$('#checkoutDate').value} · ${n} NIGHT${n !== 1 ? 'S' : ''} · ${$('#guestCount').textContent} GUEST${+$('#guestCount').textContent !== 1 ? 'S' : ''}`,
-      holder: session.user.name, section: room.name, type: 'Accommodation voucher',
+      holder: buyer.buyerName, section: room.name, type: 'Accommodation voucher',
       paidVia: paymentMethod === 'wallet' ? 'Motion Pay' : paymentMethod.toUpperCase(),
       ticketId: 'MTN-STAY-' + order.order.id.slice(-8).toUpperCase(), seed: Math.floor(Math.random() * 9999),
       receiptId: order.receiptId, kind: 'STAY VOUCHER',

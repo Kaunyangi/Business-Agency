@@ -13,24 +13,27 @@ const registerSchema = z.object({
   name: z.string().min(2).max(80),
   email: z.string().email(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  role: z.enum(['buyer', 'organizer']).default('buyer'),
+  phone: z.string().min(7, 'Enter a valid phone number').max(20),
+  role: z.enum(['buyer', 'organizer', 'host']).default('buyer'),
+  termsAccepted: z.literal(true, { message: 'You must accept the Terms & Conditions to register' }),
 });
 
 router.post('/register', validate(registerSchema), async (req, res, next) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, phone, role } = req.body;
     const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
     if (existing) return res.status(409).json({ error: 'An account with this email already exists' });
 
     const passwordHash = await hashPassword(password);
     const userId = id('usr');
     db.prepare(
-      'INSERT INTO users (id, name, email, password_hash, role, wallet_balance_cents, created_at) VALUES (?,?,?,?,?,0,datetime(\'now\'))'
-    ).run(userId, name, email, passwordHash, role);
+      `INSERT INTO users (id, name, email, password_hash, role, phone, terms_accepted_at, wallet_balance_cents, created_at)
+       VALUES (?,?,?,?,?,?,datetime('now'),0,datetime('now'))`
+    ).run(userId, name, email, passwordHash, role, phone);
 
     audit(req, userId, 'user.register', { role });
 
-    const user = { id: userId, name, email, role, wallet_balance_cents: 0 };
+    const user = { id: userId, name, email, role, phone, wallet_balance_cents: 0 };
     res.status(201).json({ token: signToken(user), user });
   } catch (err) { next(err); }
 });
@@ -51,7 +54,7 @@ router.post('/login', validate(loginSchema), async (req, res, next) => {
     if (!ok) return res.status(401).json({ error: 'Invalid email or password' });
 
     audit(req, row.id, 'user.login', {});
-    const user = { id: row.id, name: row.name, email: row.email, role: row.role, wallet_balance_cents: row.wallet_balance_cents };
+    const user = { id: row.id, name: row.name, email: row.email, role: row.role, phone: row.phone, wallet_balance_cents: row.wallet_balance_cents };
     res.json({ token: signToken(user), user });
   } catch (err) { next(err); }
 });

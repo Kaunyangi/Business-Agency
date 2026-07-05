@@ -267,12 +267,43 @@
     <div id="authError"></div>
     <div class="field" id="nameField"><label class="field-label">Name</label><input class="text-input" id="authName" placeholder="Full name"></div>
     <div class="field"><label class="field-label">Email</label><input class="text-input" id="authEmail" placeholder="you@example.com"></div>
+    <div class="field" id="phoneField"><label class="field-label">Phone</label><input class="text-input" id="authPhone" placeholder="254712345678"></div>
     <div class="field"><label class="field-label">Password</label><input class="text-input" id="authPassword" type="password" placeholder="••••••••"></div>
     <div class="field" id="roleField"><label class="field-label">I am a</label>
-      <select class="text-input" id="authRole"><option value="buyer">Buyer</option><option value="organizer">Event organizer</option></select>
+      <select class="text-input" id="authRole">
+        <option value="buyer">Buyer</option>
+        <option value="organizer">Event organizer</option>
+        <option value="host">Property host (list a stay)</option>
+      </select>
+    </div>
+    <div class="free-to-list-note hidden" id="freeToListNote">
+      <b>Free to list.</b> Publishing an event or a property costs nothing — Motion only takes its service fee/commission on completed bookings, shown transparently at checkout.
+    </div>
+    <div class="field terms-field hidden" id="termsField">
+      <label class="terms-check">
+        <input type="checkbox" id="authTerms">
+        <span>I have read and agree to the <a id="termsLink" href="#">Terms &amp; Conditions</a></span>
+      </label>
     </div>
     <button class="btn-primary" id="authSubmit">Log in</button>
     <div class="hint" style="text-align:center;margin-top:12px">Demo admin: admin@motion.africa / ChangeMe123!</div>
+  </div>
+</div>
+
+<!-- ================= TERMS & CONDITIONS MODAL ================= -->
+<div class="modal-overlay hidden" id="termsModal">
+  <div class="card terms-card" style="position:relative">
+    <button class="modal-close" id="termsCloseBtn">✕</button>
+    <h3>Motion — Terms &amp; Conditions for Organizers &amp; Hosts</h3>
+    <div class="terms-body">
+      <p><b>1. Listing is free.</b> Publishing an event or a stay property on Motion carries no upfront cost. Motion earns only from completed, paid bookings, via the service fee or commission disclosed at checkout.</p>
+      <p><b>2. Accuracy.</b> You are responsible for the accuracy of everything you list — event details, ticket quantities, property details, room availability and pricing. Misleading listings may be removed.</p>
+      <p><b>3. Payouts.</b> Funds from paid bookings settle to your Motion Pay wallet, net of the applicable fee/commission for that category, disclosed on every order.</p>
+      <p><b>4. Cancellations.</b> You must honor confirmed bookings. Repeated cancellations or no-shows may result in account review.</p>
+      <p><b>5. Buyer data.</b> Names, phone numbers, emails and ID numbers collected at checkout are used to issue tickets/vouchers and for support and compliance purposes only.</p>
+      <p><b>6. Fees are transparent.</b> Any commission or service fee is computed automatically and shown as a line item before payment — never hidden.</p>
+    </div>
+    <button class="btn-primary" id="termsAcceptBtn">I understand — close</button>
   </div>
 </div>
 
@@ -349,8 +380,64 @@
       </div>
     </section>
 
+    <section class="panel" id="panel-host">
+      <div class="panel-head"><h1>List your stay</h1><p>Villa, resort, boutique resort, Airbnb, lodge, guesthouse or something else — publish it with real room inventory, free to list.</p></div>
+      <div class="org-layout">
+        <div>
+          <div class="card">
+            <h3>Property details</h3>
+            <div class="field"><label class="field-label">Property name</label><input class="text-input" id="hName" placeholder="e.g. Diani Sands Villa"></div>
+            <div class="grid-2">
+              <div class="field"><label class="field-label">Property type</label>
+                <select class="text-input" id="hType"><option>Villa</option><option>Resort</option><option>Boutique Resort</option><option>Airbnb</option><option>Lodge</option><option>Guesthouse</option><option>Other</option></select>
+              </div>
+              <div class="field"><label class="field-label">City / area</label><input class="text-input" id="hLocation" placeholder="e.g. Diani Beach"></div>
+            </div>
+            <div class="field"><label class="field-label">Country</label><select class="text-input" id="hCountry"></select></div>
+          </div>
+
+          <div class="card">
+            <h3>Rooms &amp; nightly rates (KES)</h3>
+            <div id="hRoomList"></div>
+            <button class="add-tier" id="hAddRoomBtn">+ Add room type</button>
+          </div>
+
+          <div class="card">
+            <h3>Your listed properties</h3>
+            <div id="myProperties"><span class="hint">Loading…</span></div>
+          </div>
+        </div>
+
+        <div class="preview-sticky">
+          <div class="card">
+            <h3>Buyer preview</h3>
+            <div class="preview-poster" id="hPreviewArt"><div class="ph">Property photo preview</div></div>
+            <span class="preview-chip" id="hPreviewType">Villa</span>
+            <div class="preview-title" id="hPreviewTitle">Untitled property</div>
+            <div class="preview-meta" id="hPreviewMeta">Add a city and country</div>
+            <div id="hPreviewRooms"></div>
+            <div id="hostError"></div>
+            <button class="btn-primary" id="hPublishBtn" style="margin-top:14px">Publish stay</button>
+            <div class="hint" style="text-align:center;margin-top:8px">Free to list — Motion's 18% service fee only applies once a guest actually books, added to their total at checkout.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="panel" id="panel-buy">
       <div class="panel-head"><h1>What's on</h1><p>Live events from the Motion catalogue. Pick your ticket categories and pay from Motion Pay, M-Pesa, or card.</p></div>
+      <div class="card buyer-details-card">
+        <h3>Your details</h3>
+        <p class="hint" style="font-family:var(--font-body);font-size:12.5px;color:var(--ink-soft);margin:-6px 0 12px">Used to issue your ticket and for support — only your name is printed on the ticket, exactly as typed.</p>
+        <div class="grid-2">
+          <div class="field"><label class="field-label">Full name</label><input class="text-input" id="ticketBuyerName" placeholder="As it should appear on the ticket"></div>
+          <div class="field"><label class="field-label">Phone</label><input class="text-input" id="ticketBuyerPhone" placeholder="254712345678"></div>
+        </div>
+        <div class="grid-2">
+          <div class="field"><label class="field-label">Email</label><input class="text-input" id="ticketBuyerEmail" placeholder="you@example.com"></div>
+          <div class="field"><label class="field-label">ID / passport no. (optional)</label><input class="text-input" id="ticketBuyerId" placeholder="Optional"></div>
+        </div>
+      </div>
       <div id="eventsList"><span class="hint">Loading events…</span></div>
     </section>
 
@@ -372,6 +459,10 @@
           <h3>Fare summary</h3>
           <div id="fareLines"></div>
           <div class="fare-total"><span class="lbl">Total</span><span class="val" id="fareTotal">KES 0</span></div>
+          <div class="field" style="margin-top:14px"><label class="field-label">Passenger name</label><input class="text-input" id="flightBuyerName" placeholder="As it should appear on the boarding pass"></div>
+          <div class="field"><label class="field-label">Phone</label><input class="text-input" id="flightBuyerPhone" placeholder="254712345678"></div>
+          <div class="field"><label class="field-label">Email</label><input class="text-input" id="flightBuyerEmail" placeholder="you@example.com"></div>
+          <div class="field"><label class="field-label">ID / passport no. (optional)</label><input class="text-input" id="flightBuyerId" placeholder="Optional"></div>
           <div class="field" style="margin-top:14px"><label class="field-label">Pay with</label>
             <select class="text-input" id="flightPayMethod"><option value="wallet">Motion Pay wallet</option><option value="mpesa">M-Pesa</option><option value="card">Card</option></select>
           </div>
@@ -400,8 +491,12 @@
           <div class="field"><label class="field-label">Guests</label><div class="stepper"><button id="guestMinus">−</button><span id="guestCount">2</span><button id="guestPlus">+</button></div></div>
           <div class="nights-pill"><span id="nightsLabel">0 nights</span><span id="selectedRoomLabel">No room selected</span></div>
           <div class="fare-line"><span>Room subtotal</span><span id="stayRoomTotal">KES 0</span></div>
-          <div class="fare-line"><span>Service fee</span><span id="stayFee">KES 0</span></div>
+          <div class="fare-line"><span>Motion service fee (18%)</span><span id="stayFee">KES 0</span></div>
           <div class="fare-total"><span class="lbl">Total</span><span class="val" id="stayTotal">KES 0</span></div>
+          <div class="field" style="margin-top:14px"><label class="field-label">Guest name</label><input class="text-input" id="stayBuyerName" placeholder="As it should appear on the voucher"></div>
+          <div class="field"><label class="field-label">Phone</label><input class="text-input" id="stayBuyerPhone" placeholder="254712345678"></div>
+          <div class="field"><label class="field-label">Email</label><input class="text-input" id="stayBuyerEmail" placeholder="you@example.com"></div>
+          <div class="field"><label class="field-label">ID / passport no. (optional)</label><input class="text-input" id="stayBuyerId" placeholder="Optional"></div>
           <div class="field" style="margin-top:14px"><label class="field-label">Pay with</label>
             <select class="text-input" id="stayPayMethod"><option value="wallet">Motion Pay wallet</option><option value="mpesa">M-Pesa</option><option value="card">Card</option></select>
           </div>

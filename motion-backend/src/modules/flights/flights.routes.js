@@ -29,12 +29,16 @@ const bookSchema = z.object({
   seatIds: z.array(z.string()).min(1).max(9),
   paymentMethod: z.enum(['mpesa', 'card', 'wallet']),
   payerRef: z.string().min(1),
+  buyerName: z.string().min(2).max(100),
+  buyerPhone: z.string().min(7).max(20),
+  buyerEmail: z.string().email(),
+  buyerIdNumber: z.string().max(40).optional(),
 });
 
 router.post('/checkout', requireAuth, idempotent, validate(bookSchema), async (req, res, next) => {
   try {
     if (req.idempotentReplay) return res.json({ order: req.idempotentReplay, replay: true });
-    const { flightId, seatIds, paymentMethod, payerRef } = req.body;
+    const { flightId, seatIds, paymentMethod, payerRef, buyerName, buyerPhone, buyerEmail, buyerIdNumber } = req.body;
 
     const built = transaction(() => {
       const flight = db.prepare('SELECT * FROM flights WHERE id = ?').get(flightId);
@@ -58,9 +62,9 @@ router.post('/checkout', requireAuth, idempotent, validate(bookSchema), async (r
 
       const orderId = id('ord');
       db.prepare(
-        `INSERT INTO orders (id, user_id, order_type, status, subtotal_cents, commission_cents, fees_cents, total_cents, idempotency_key, created_at)
-         VALUES (?,?, 'flight', 'pending', ?, ?, ?, ?, ?, datetime('now'))`
-      ).run(orderId, req.user.id, subtotalCents, commissionCents, taxesCents, totalCents, req.idempotencyKey || null);
+        `INSERT INTO orders (id, user_id, order_type, status, subtotal_cents, commission_cents, fees_cents, total_cents, idempotency_key, buyer_name, buyer_phone, buyer_email, buyer_id_number, created_at)
+         VALUES (?,?, 'flight', 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+      ).run(orderId, req.user.id, subtotalCents, commissionCents, taxesCents, totalCents, req.idempotencyKey || null, buyerName, buyerPhone, buyerEmail, buyerIdNumber || null);
 
       const insertItem = db.prepare('INSERT INTO order_items (id, order_id, ref_type, ref_id, description, unit_price_cents, quantity, line_total_cents) VALUES (?,?,?,?,?,?,?,?)');
       lineItems.forEach((li) => insertItem.run(id('item'), orderId, li.ref_type, li.ref_id, li.description, li.unit_price_cents, li.quantity, li.line_total_cents));

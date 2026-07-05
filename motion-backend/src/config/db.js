@@ -43,7 +43,9 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
-  role TEXT NOT NULL DEFAULT 'buyer', -- buyer | organizer | admin
+  role TEXT NOT NULL DEFAULT 'buyer', -- buyer | organizer | host | admin
+  phone TEXT NOT NULL DEFAULT '',
+  terms_accepted_at TEXT,
   wallet_balance_cents INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -109,7 +111,8 @@ CREATE TABLE IF NOT EXISTS properties (
   name TEXT NOT NULL,
   location TEXT NOT NULL,
   country TEXT NOT NULL DEFAULT '',
-  type TEXT NOT NULL DEFAULT 'Villa' -- Villa | Resort | Boutique Resort | Airbnb | Lodge | Guesthouse
+  type TEXT NOT NULL DEFAULT 'Villa', -- Villa | Resort | Boutique Resort | Airbnb | Lodge | Guesthouse | Other
+  owner_id TEXT REFERENCES users(id) -- NULL for platform-seeded demo inventory; set for host-listed properties
 );
 
 CREATE TABLE IF NOT EXISTS rooms (
@@ -141,6 +144,10 @@ CREATE TABLE IF NOT EXISTS orders (
   fees_cents INTEGER NOT NULL DEFAULT 0,
   total_cents INTEGER NOT NULL,
   idempotency_key TEXT UNIQUE,
+  buyer_name TEXT,
+  buyer_phone TEXT,
+  buyer_email TEXT,
+  buyer_id_number TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -208,5 +215,12 @@ db.exec(SCHEMA);
 // swallow the error when the column is already there.
 try { db.exec("ALTER TABLE properties ADD COLUMN country TEXT NOT NULL DEFAULT ''"); } catch (_) {}
 try { db.exec("ALTER TABLE properties ADD COLUMN type TEXT NOT NULL DEFAULT 'Villa'"); } catch (_) {}
+try { db.exec("ALTER TABLE properties ADD COLUMN owner_id TEXT REFERENCES users(id)"); } catch (_) {}
+try { db.exec("ALTER TABLE users ADD COLUMN phone TEXT NOT NULL DEFAULT ''"); } catch (_) {}
+try { db.exec("ALTER TABLE users ADD COLUMN terms_accepted_at TEXT"); } catch (_) {}
+try { db.exec("ALTER TABLE orders ADD COLUMN buyer_name TEXT"); } catch (_) {}
+try { db.exec("ALTER TABLE orders ADD COLUMN buyer_phone TEXT"); } catch (_) {}
+try { db.exec("ALTER TABLE orders ADD COLUMN buyer_email TEXT"); } catch (_) {}
+try { db.exec("ALTER TABLE orders ADD COLUMN buyer_id_number TEXT"); } catch (_) {}
 
 module.exports = { db, transaction };
