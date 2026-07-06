@@ -323,7 +323,7 @@ function renderTabs() {
 function loadPanel(key) {
   if (key === 'buy') loadEvents();
   if (key === 'wallet') loadWallet();
-  if (key === 'admin') { loadRules(); loadSummary(); }
+  if (key === 'admin') { initAdminDashboard(); }
   if (key === 'organizer') loadMyEvents();
   if (key === 'host') loadMyProperties();
   if (key === 'tickets') renderMyTickets();
@@ -531,8 +531,46 @@ async function loadMyEvents() {
 let roomSeq = 0;
 let hostRooms = [{ id: ++roomSeq, name: 'Garden Room', price: 6500, capacity: 2, tags: 'Fan, Garden view, Breakfast' }];
 let hostState = { name: '', type: 'Villa', location: '', country: '' };
+let hostMedia = []; // { media_type: 'photo'|'video', url }
 
 $('#hCountry').innerHTML = '<option value="">Select country</option>' + AFRICAN_COUNTRIES.map(([, name]) => `<option>${esc(name)}</option>`).join('');
+
+function renderHostMedia() {
+  $('#hMediaThumbs').innerHTML = hostMedia.map((m, i) => `
+    <div class="media-thumb ${i === 0 ? 'primary' : ''}" data-i="${i}">
+      <span class="media-kind">${m.media_type}</span>
+      ${m.media_type === 'photo' ? `<img src="${m.url}" alt="">` : `<video src="${m.url}" muted></video>`}
+      <button class="media-remove" data-remove="${i}" aria-label="Remove">✕</button>
+    </div>`).join('');
+}
+$('#hMediaThumbs').addEventListener('click', e => {
+  const btn = e.target.closest('[data-remove]'); if (!btn) return;
+  hostMedia.splice(+btn.dataset.remove, 1);
+  renderHostMedia(); renderHostPreview();
+});
+$('#hAddPhotoBtn').addEventListener('click', () => $('#hPhotoFile').click());
+$('#hPhotoFile').addEventListener('change', e => {
+  const files = [...e.target.files].slice(0, 12 - hostMedia.length);
+  if (!files.length) return;
+  let pending = files.length;
+  files.forEach(f => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      hostMedia.push({ media_type: 'photo', url: reader.result });
+      if (--pending === 0) { renderHostMedia(); renderHostPreview(); }
+    };
+    reader.readAsDataURL(f);
+  });
+  e.target.value = '';
+});
+$('#hAddVideoBtn').addEventListener('click', () => {
+  const url = $('#hVideoUrl').value.trim();
+  if (!/^https:\/\/.+\.(mp4|webm|mov)$/i.test(url)) { toast('Video must be a direct https link ending in .mp4, .webm, or .mov', true); return; }
+  if (hostMedia.length >= 12) { toast('Maximum 12 media items per listing', true); return; }
+  hostMedia.push({ media_type: 'video', url });
+  $('#hVideoUrl').value = '';
+  renderHostMedia(); renderHostPreview();
+});
 
 function renderHostRoomEditor() {
   $('#hRoomList').innerHTML = hostRooms.map(r => `
@@ -579,6 +617,10 @@ function renderHostPreview() {
   $('#hPreviewType').textContent = hostState.type;
   $('#hPreviewTitle').textContent = hostState.name || 'Untitled property';
   $('#hPreviewMeta').textContent = `${hostState.location || 'City TBC'}${hostState.country ? ', ' + hostState.country : ''}`;
+  const cover = hostMedia.find(m => m.media_type === 'photo');
+  const coverCSS = cover ? safePosterCSS(cover.url) : '';
+  $('#hPreviewArt').innerHTML = coverCSS ? '' : '<div class="ph">Property photo preview</div>';
+  $('#hPreviewArt').setAttribute('style', coverCSS || '');
   $('#hPreviewRooms').innerHTML = hostRooms.map(r => `
     <div class="buy-row"><div><div class="name">${esc(r.name)}</div><div class="avail">Sleeps ${r.capacity}</div></div><div class="price">${fmtKESraw(r.price)}/night</div></div>
   `).join('') || '<div class="buy-row"><span class="avail">Add a room to preview</span></div>';
@@ -588,18 +630,23 @@ renderHostRoomEditor();
 
 $('#hPublishBtn').addEventListener('click', async () => {
   $('#hostError').innerHTML = '';
+  const lat = $('#hLat').value.trim(), lng = $('#hLng').value.trim();
   const payload = {
     name: hostState.name, location: hostState.location, country: hostState.country, type: hostState.type,
     rooms: hostRooms.map(r => ({
       name: r.name, price_cents: Math.round(r.price * 100), capacity: r.capacity,
       tags: r.tags.split(',').map(t => t.trim()).filter(Boolean),
     })),
+    media: hostMedia,
   };
+  if (lat && lng) { payload.lat = +lat; payload.lng = +lng; }
   const btn = $('#hPublishBtn');
   try {
     btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
     await api('/stays', { method: 'POST', body: JSON.stringify(payload) });
     toast('Stay published to the live catalogue');
+    hostMedia = []; renderHostMedia();
+    $('#hLat').value = ''; $('#hLng').value = '';
     loadMyProperties(); loadProperties();
   } catch (err) {
     $('#hostError').innerHTML = errBoxHTML(err);
@@ -1232,20 +1279,107 @@ function applyStayFilters() {
   );
   selectedPropertyIdx = 0; selectedRoom = null;
   renderPropertyStrip(); renderRooms(); computeStayTotal();
+  if (stayViewMode === 'map') renderStayMap();
+}
+
+/* ---- GIS map view ---- */
+let stayViewMode = 'list', stayMapInstance = null, stayMarkersLayer = null;
+$('#stayViewList').addEventListener('click', () => setStayView('list'));
+$('#stayViewMap').addEventListener('click', () => setStayView('map'));
+function setStayView(mode) {
+  stayViewMode = mode;
+  $('#stayViewList').classList.toggle('active', mode === 'list');
+  $('#stayViewMap').classList.toggle('active', mode === 'map');
+  $('#propertyStrip').classList.toggle('hidden', mode !== 'list');
+  $('#propertyStripCount').classList.toggle('hidden', mode !== 'list');
+  $('#stayMapWrap').classList.toggle('hidden', mode !== 'map');
+  if (mode === 'map') { setTimeout(() => { initStayMap(); renderStayMap(); }, 0); }
+}
+function initStayMap() {
+  if (stayMapInstance) { stayMapInstance.invalidateSize(); return; }
+  stayMapInstance = L.map('stayMap').setView([1, 25], 3.2);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors', maxZoom: 18,
+  }).addTo(stayMapInstance);
+  stayMarkersLayer = L.layerGroup().addTo(stayMapInstance);
+}
+function renderStayMap() {
+  if (!stayMapInstance || !stayMarkersLayer) return;
+  stayMarkersLayer.clearLayers();
+  const pinned = filteredProperties.filter(p => p.lat != null && p.lng != null);
+  pinned.forEach((p) => {
+    const marker = L.marker([p.lat, p.lng]).addTo(stayMarkersLayer);
+    const globalIdx = filteredProperties.indexOf(p);
+    const minPrice = p.rooms.length ? Math.min(...p.rooms.map(r => r.price_cents)) : 0;
+    const popupEl = document.createElement('div');
+    popupEl.className = 'map-popup';
+    popupEl.innerHTML = `<b>${esc(p.name)}</b><span>${esc(p.location)}${p.country ? ', ' + esc(p.country) : ''} · from ${fmtKES(minPrice)}/night</span><button>View property</button>`;
+    popupEl.querySelector('button').onclick = () => {
+      selectedPropertyIdx = globalIdx; selectedRoom = null;
+      setStayView('list'); renderPropertyStrip(); renderRooms(); computeStayTotal();
+      $('#propertyStrip').querySelector(`[data-i="${globalIdx}"]`)?.scrollIntoView({ behavior: 'smooth', inline: 'center' });
+    };
+    marker.bindPopup(popupEl);
+  });
+  if (pinned.length) stayMapInstance.fitBounds(pinned.map(p => [p.lat, p.lng]), { padding: [30, 30], maxZoom: 8 });
 }
 function renderPropertyStrip() {
-  $('#propertyStrip').innerHTML = filteredProperties.map((p, i) => `
+  $('#propertyStrip').innerHTML = filteredProperties.map((p, i) => {
+    const cover = (p.media || []).find(m => m.media_type === 'photo');
+    const coverCSS = cover ? safePosterCSS(cover.url) : '';
+    const artStyle = coverCSS || `background:linear-gradient(150deg,${AIRLINE_COLORS[i % AIRLINE_COLORS.length]},#14181a)`;
+    const mediaCount = (p.media || []).length;
+    return `
     <div class="property-card ${i === selectedPropertyIdx ? 'active' : ''}" data-i="${i}">
-      <div class="art" style="background:linear-gradient(150deg,${AIRLINE_COLORS[i % AIRLINE_COLORS.length]},#14181a)"><span class="type-pill">${esc(p.type || 'Stay')}</span></div>
+      <div class="art" style="${artStyle}">
+        <span class="type-pill">${esc(p.type || 'Stay')}</span>
+        ${mediaCount ? `<span class="media-badge">📷 ${mediaCount}</span>` : ''}
+      </div>
       <div class="info"><b>${esc(p.name)}</b><span>${esc(p.location)}${p.country ? ', ' + esc(p.country) : ''}</span></div>
-    </div>`).join('') || '<span class="hint">No properties match those filters.</span>';
+      ${mediaCount ? `<button class="gallery-link" data-gallery="${i}">View gallery →</button>` : ''}
+    </div>`;
+  }).join('') || '<span class="hint">No properties match those filters.</span>';
   $('#propertyStripCount').textContent = `${filteredProperties.length} of ${properties.length} properties`;
 }
 $('#propertyStrip').addEventListener('click', e => {
+  const galleryBtn = e.target.closest('[data-gallery]');
+  if (galleryBtn) { openGallery(filteredProperties[+galleryBtn.dataset.gallery]); return; }
   const card = e.target.closest('.property-card'); if (!card) return;
   selectedPropertyIdx = +card.dataset.i; selectedRoom = null;
   renderPropertyStrip(); renderRooms(); computeStayTotal();
 });
+
+/* ---- gallery lightbox ---- */
+let galleryMedia = [], galleryIdx = 0;
+function openGallery(property) {
+  galleryMedia = (property.media || []).filter(m =>
+    m.media_type === 'photo' ? safePosterCSS(m.url) : /^https:\/\/.+\.(mp4|webm|mov)$/i.test(m.url)
+  );
+  if (!galleryMedia.length) return;
+  galleryIdx = 0;
+  $('#galleryTitle').textContent = property.name;
+  renderGallery();
+  $('#galleryModal').classList.remove('hidden');
+}
+function renderGallery() {
+  const m = galleryMedia[galleryIdx];
+  $('#galleryMain').innerHTML = m.media_type === 'photo'
+    ? `<img src="${m.url}" alt="">`
+    : `<video src="${m.url}" controls autoplay muted></video>`;
+  $('#galleryCount').textContent = `${galleryIdx + 1} of ${galleryMedia.length}`;
+  $('#galleryThumbs').innerHTML = galleryMedia.map((gm, i) => `
+    <div class="g-thumb ${i === galleryIdx ? 'active' : ''}" data-i="${i}">
+      ${gm.media_type === 'photo' ? `<img src="${gm.url}" alt="">` : `<video src="${gm.url}" muted></video>`}
+    </div>`).join('');
+}
+$('#galleryThumbs').addEventListener('click', e => {
+  const t = e.target.closest('[data-i]'); if (!t) return;
+  galleryIdx = +t.dataset.i; renderGallery();
+});
+$('#galleryPrevBtn').addEventListener('click', () => { galleryIdx = (galleryIdx - 1 + galleryMedia.length) % galleryMedia.length; renderGallery(); });
+$('#galleryNextBtn').addEventListener('click', () => { galleryIdx = (galleryIdx + 1) % galleryMedia.length; renderGallery(); });
+$('#galleryCloseBtn').addEventListener('click', () => $('#galleryModal').classList.add('hidden'));
+$('#galleryModal').addEventListener('click', e => { if (e.target.id === 'galleryModal') $('#galleryModal').classList.add('hidden'); });
 function renderRooms() {
   const p = filteredProperties[selectedPropertyIdx];
   if (!p) { $('#roomList').innerHTML = '<h3>Available rooms</h3><span class="hint">Select a property above.</span>'; return; }
@@ -1374,8 +1508,73 @@ function renderMyTickets() {
 }
 
 /* =========================================================
-   ADMIN — REVENUE ENGINE
+   ADMIN — SALES / MARKETING / FINANCE / OPERATIONS
    ========================================================= */
+const ADMIN_DEPTS = ['Sales', 'Marketing', 'Finance', 'Operations'];
+let adminActiveView = null;
+const ADMIN_LOADERS = { Sales: loadSalesDashboard, Marketing: loadMarketingDashboard, Finance: loadFinanceDashboard, Operations: loadOperationsDashboard };
+
+function initAdminDashboard() {
+  const dept = session.user.department;
+  const visible = (!dept || dept === 'General') ? ADMIN_DEPTS : [dept];
+  $('#adminSubTabs').innerHTML = visible.map((d, i) => `<button class="${i === 0 ? 'active' : ''}" data-dept="${d}">${d}</button>`).join('');
+  $('#adminCreateCard').classList.toggle('hidden', dept && dept !== 'General');
+  setAdminView(visible[0]);
+  if (!dept || dept === 'General') loadAdminUsers();
+}
+$('#adminSubTabs').addEventListener('click', e => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  setAdminView(btn.dataset.dept);
+});
+function setAdminView(dept) {
+  adminActiveView = dept;
+  $$('#adminSubTabs button').forEach(b => b.classList.toggle('active', b.dataset.dept === dept));
+  ADMIN_DEPTS.forEach(d => $('#adminview-' + d.toLowerCase()).classList.toggle('active', d === dept));
+  ADMIN_LOADERS[dept] && ADMIN_LOADERS[dept]();
+}
+
+async function loadSalesDashboard() {
+  try {
+    const d = await api('/admin/dashboard/sales');
+    $('#salesGmv').innerHTML = d.gmvByLine.length ? d.gmvByLine.map(l => `
+      <div class="metric-row"><span>${esc(l.order_type)} <span class="sub">(${l.orders} orders)</span></span><b>${fmtKES(l.gmv_cents)}</b></div>`).join('') : '<span class="hint">No paid orders yet.</span>';
+    $('#salesFunnel').innerHTML = d.funnel.map(f => `<div class="metric-row"><span>${esc(f.status)}</span><b>${f.n}</b></div>`).join('')
+      + `<div class="metric-row"><span>Repeat-booking rate</span><b>${d.repeatBookingRate}%</b></div>`;
+    $('#salesTopProperties').innerHTML = d.topProperties.length ? d.topProperties.map(p => `
+      <div class="metric-row"><span>${esc(p.name)} <span class="sub">${esc(p.location)} · ${p.bookings} booking${p.bookings !== 1 ? 's' : ''}</span></span><b>${fmtKES(p.revenue_cents)}</b></div>`).join('') : '<span class="hint">No stay bookings yet.</span>';
+    $('#salesTopEvents').innerHTML = d.topEvents.length ? d.topEvents.map(e => `
+      <div class="metric-row"><span>${esc(e.name)} <span class="sub">${esc(e.city || '')} · ${e.tickets_sold} sold</span></span><b>${fmtKES(e.revenue_cents)}</b></div>`).join('') : '<span class="hint">No ticket sales yet.</span>';
+  } catch (err) { $('#salesGmv').innerHTML = errBoxHTML(err); }
+}
+
+async function loadMarketingDashboard() {
+  try {
+    const d = await api('/admin/dashboard/marketing');
+    $('#mktFunnel').innerHTML = `
+      <div class="metric-row"><span>Registered</span><b>${d.funnel.registered}</b></div>
+      <div class="metric-row"><span>Topped up wallet</span><b>${d.funnel.toppedUpWallet}</b></div>
+      <div class="metric-row"><span>Made first booking</span><b>${d.funnel.madeFirstBooking}</b></div>
+      <div class="metric-row"><span>Signup → booking conversion</span><b>${d.signupToBookingRate}%</b></div>`;
+    $('#mktByRole').innerHTML = d.byRole.map(r => `<div class="metric-row"><span>${esc(r.role)}</span><b>${r.n}</b></div>`).join('');
+    $('#mktSignups').innerHTML = d.signupsByDay.length ? d.signupsByDay.map(s => `<div class="metric-row"><span>${s.day}</span><b>${s.n}</b></div>`).join('') : '<span class="hint">No signups yet.</span>';
+  } catch (err) { $('#mktFunnel').innerHTML = errBoxHTML(err); }
+}
+
+async function loadFinanceDashboard() {
+  await loadRules();
+  try {
+    const d = await api('/admin/dashboard/finance');
+    $('#financeSummary').innerHTML = `
+      <div class="metric-row"><span>Gross revenue collected (paid orders)</span><b>${fmtKES(d.grossRevenueCents)}</b></div>
+      <div class="metric-row"><span>Total commission earned</span><b>${fmtKES(d.totalCommissionCents)}</b></div>
+      <div class="metric-row"><span>Motion Pay wallet liability (owed to users)</span><b>${fmtKES(d.walletLiabilityCents)}</b></div>`
+      + d.commissionByRule.map(l => `<div class="metric-row"><span>${esc(l.rule_key)} <span class="sub">(${l.transactions} txns)</span></span><b>${fmtKES(l.total_cents)}</b></div>`).join('');
+    $('#financePayout').innerHTML = d.payoutLiability.length ? d.payoutLiability.map(p => `
+      <div class="metric-row"><span>${esc(p.order_type)}</span><b>${fmtKES(p.payable_cents)} <span class="sub">payable · ${fmtKES(p.commission_cents)} commission</span></b></div>`).join('') : '<span class="hint">No paid orders yet.</span>';
+    $('#financeReconciliation').innerHTML = d.reconciliation.length ? d.reconciliation.map(r => `
+      <div class="metric-row"><span>${esc(r.provider)} · ${esc(r.status)} <span class="sub">(${r.n} txns)</span></span><b>${fmtKES(r.amount_cents)}</b></div>`).join('') : '<span class="hint">No payments recorded yet.</span>';
+  } catch (err) { $('#financeSummary').innerHTML = errBoxHTML(err); }
+}
 async function loadRules() {
   try {
     const { rules } = await api('/revenue/rules');
@@ -1400,17 +1599,43 @@ async function saveRules() {
       await api(`/revenue/rules/${key}`, { method: 'PATCH', body: JSON.stringify({ rate_percent, flat_fee_cents, active }) });
     }
     toast('Commission rules updated — effective on the next order');
-    loadSummary();
+    loadFinanceDashboard();
   } catch (err) { toast(err.message, true); }
 }
-async function loadSummary() {
+
+async function loadOperationsDashboard() {
   try {
-    const s = await api('/revenue/summary');
-    $('#revenueSummary').innerHTML = (s.byLine.length ? s.byLine.map(l => `
-      <div class="doc-row"><span>${l.rule_key} <span class="hint">(${l.transactions} txns)</span></span><b>${fmtKES(l.total_cents)}</b></div>`).join('') : '<span class="hint">No revenue recorded yet.</span>')
-      + `<div class="doc-row" style="border-top:2px solid var(--ink);margin-top:8px;padding-top:12px"><b>Total platform revenue</b><b>${fmtKES(s.totalCents)}</b></div>`;
-  } catch (err) { $('#revenueSummary').innerHTML = errBoxHTML(err); }
+    const d = await api('/admin/dashboard/operations');
+    $('#opsOrders').innerHTML = d.ordersByType.map(o => `<div class="metric-row"><span>${esc(o.order_type)} · ${esc(o.status)}</span><b>${o.n}</b></div>`).join('')
+      + `<div class="metric-row"><span>Failed order rate</span><b>${d.failedOrderRate}%</b></div>`;
+    $('#opsLowInventory').innerHTML = d.lowInventoryFlights.length ? d.lowInventoryFlights.map(f => `
+      <div class="metric-row"><span>${esc(f.airline)} ${esc(f.flight_no)} <span class="sub">${esc(f.origin)} → ${esc(f.destination)} · ${f.flight_date}</span></span><b>${f.booked_seats}/${f.total_seats}</b></div>`).join('') : '<span class="hint">No flights near capacity.</span>';
+    $('#opsActivity').innerHTML = d.recentActivity.length ? d.recentActivity.map(a => `
+      <div class="metric-row"><span>${esc(a.action)}</span><span class="sub">${a.created_at}</span></div>`).join('') : '<span class="hint">No recent activity.</span>';
+  } catch (err) { $('#opsOrders').innerHTML = errBoxHTML(err); }
 }
+
+async function loadAdminUsers() {
+  try {
+    const { users } = await api('/admin/users');
+    $('#adminUsersList').innerHTML = users.map(u => `
+      <div class="admin-user-row"><span>${esc(u.name)} <span class="sub">${esc(u.email)}</span></span><span class="dept">${esc(u.department || 'General')}</span></div>`).join('');
+  } catch (err) { $('#adminUsersList').innerHTML = errBoxHTML(err); }
+}
+$('#adminCreateBtn').addEventListener('click', async () => {
+  $('#adminCreateError').innerHTML = '';
+  const name = $('#adminNewName').value.trim(), email = $('#adminNewEmail').value.trim(),
+    password = $('#adminNewPassword').value, department = $('#adminNewDept').value;
+  const btn = $('#adminCreateBtn');
+  try {
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+    await api('/admin/users', { method: 'POST', body: JSON.stringify({ name, email, password, department }) });
+    toast(`${department} admin login created`);
+    $('#adminNewName').value = ''; $('#adminNewEmail').value = ''; $('#adminNewPassword').value = '';
+    loadAdminUsers();
+  } catch (err) { $('#adminCreateError').innerHTML = errBoxHTML(err); }
+  finally { btn.disabled = false; btn.textContent = 'Create admin login'; }
+});
 
 /* =========================================================
    BOOT

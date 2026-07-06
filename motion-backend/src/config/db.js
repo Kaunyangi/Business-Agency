@@ -166,6 +166,14 @@ CREATE TABLE IF NOT EXISTS rooms (
   tags TEXT -- json array
 );
 
+CREATE TABLE IF NOT EXISTS property_media (
+  id TEXT PRIMARY KEY,
+  property_id TEXT NOT NULL REFERENCES properties(id),
+  media_type TEXT NOT NULL DEFAULT 'photo', -- photo | video
+  url TEXT NOT NULL, -- data: URL for photos; direct https .mp4/.webm for video
+  sort_order INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS room_bookings (
   id TEXT PRIMARY KEY,
   room_id TEXT NOT NULL REFERENCES rooms(id),
@@ -264,5 +272,8 @@ try { db.exec("ALTER TABLE orders ADD COLUMN buyer_name TEXT"); } catch (_) {}
 try { db.exec("ALTER TABLE orders ADD COLUMN buyer_phone TEXT"); } catch (_) {}
 try { db.exec("ALTER TABLE orders ADD COLUMN buyer_email TEXT"); } catch (_) {}
 try { db.exec("ALTER TABLE orders ADD COLUMN buyer_id_number TEXT"); } catch (_) {}
+try { db.exec("ALTER TABLE properties ADD COLUMN lat REAL"); } catch (_) {}
+try { db.exec("ALTER TABLE properties ADD COLUMN lng REAL"); } catch (_) {}
+try { db.exec("ALTER TABLE users ADD COLUMN department TEXT"); } catch (_) {}
 
 module.exports = { db, transaction };

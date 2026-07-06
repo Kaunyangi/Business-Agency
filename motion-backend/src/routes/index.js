@@ -11,5 +11,6 @@ router.use('/sgr', require('../modules/sgr/sgr.routes'));
 router.use('/stays', require('../modules/stays/stays.routes'));
 router.use('/revenue', require('../modules/revenue/revenue.routes'));
 router.use('/documents', require('../modules/documents/documents.routes'));
+router.use('/admin', require('../modules/admin/admin.routes'));
 
 module.exports = router;

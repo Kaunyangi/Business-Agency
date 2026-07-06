@@ -54,7 +54,7 @@ router.post('/login', validate(loginSchema), async (req, res, next) => {
     if (!ok) return res.status(401).json({ error: 'Invalid email or password' });
 
     audit(req, row.id, 'user.login', {});
-    const user = { id: row.id, name: row.name, email: row.email, role: row.role, phone: row.phone, wallet_balance_cents: row.wallet_balance_cents };
+    const user = { id: row.id, name: row.name, email: row.email, role: row.role, phone: row.phone, department: row.department, wallet_balance_cents: row.wallet_balance_cents };
     res.json({ token: signToken(user), user });
   } catch (err) { next(err); }
 });

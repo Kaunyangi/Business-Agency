@@ -14,7 +14,22 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 // ---- Security middleware stack ----
-app.use(helmet()); // sensible security headers (HSTS, no-sniff, frameguard, etc.)
+app.use(helmet({
+  // Default CSP blocks img-src to 'self' + data:, which would break the OSM
+  // tile layer (Leaflet loads tiles as plain <img> elements from OSM's tile
+  // subdomains). Every other directive stays at helmet's strict default.
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      'img-src': ["'self'", 'data:', 'https://*.tile.openstreetmap.org'],
+      // Host-supplied property tour videos are validated server-side to be a
+      // direct https .mp4/.webm/.mov link (see stays.routes.js mediaSchema) —
+      // there is no iframe/script src here, only a <video src>, so allowing
+      // https broadly does not reopen the injection surface that restriction closed.
+      'media-src': ["'self'", 'https:'],
+    },
+  },
+})); // sensible security headers (HSTS, no-sniff, frameguard, etc.)
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : '*',
   credentials: true,

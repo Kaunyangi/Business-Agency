@@ -8,7 +8,7 @@ function requireAuth(req, res, next) {
 
   try {
     const payload = verifyToken(token);
-    const user = db.prepare('SELECT id, name, email, role, phone, wallet_balance_cents FROM users WHERE id = ?').get(payload.sub);
+    const user = db.prepare('SELECT id, name, email, role, phone, department, wallet_balance_cents FROM users WHERE id = ?').get(payload.sub);
     if (!user) return res.status(401).json({ error: 'User no longer exists' });
     req.user = user;
     next();

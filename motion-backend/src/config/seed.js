@@ -7,23 +7,23 @@ const revenue = require('../modules/revenue/revenue.service');
 // large, geographically varied stays catalogue rather than hand-typing each
 // property individually.
 const LOCATIONS = [
-  { city: 'Diani Beach', country: 'Kenya' }, { city: 'Watamu', country: 'Kenya' },
-  { city: 'Lamu Old Town', country: 'Kenya' }, { city: 'Nairobi', country: 'Kenya' },
-  { city: 'Naivasha', country: 'Kenya' }, { city: 'Zanzibar', country: 'Tanzania' },
-  { city: 'Arusha', country: 'Tanzania' }, { city: 'Dar es Salaam', country: 'Tanzania' },
-  { city: 'Kampala', country: 'Uganda' }, { city: 'Entebbe', country: 'Uganda' },
-  { city: 'Kigali', country: 'Rwanda' }, { city: 'Cape Town', country: 'South Africa' },
-  { city: 'Durban', country: 'South Africa' }, { city: 'Johannesburg', country: 'South Africa' },
-  { city: 'Stellenbosch', country: 'South Africa' }, { city: 'Marrakech', country: 'Morocco' },
-  { city: 'Essaouira', country: 'Morocco' }, { city: 'Tangier', country: 'Morocco' },
-  { city: 'Accra', country: 'Ghana' }, { city: 'Cape Coast', country: 'Ghana' },
-  { city: 'Lagos', country: 'Nigeria' }, { city: 'Abuja', country: 'Nigeria' },
-  { city: 'Dakar', country: 'Senegal' }, { city: 'Victoria Falls', country: 'Zimbabwe' },
-  { city: 'Windhoek', country: 'Namibia' }, { city: 'Swakopmund', country: 'Namibia' },
-  { city: 'Hurghada', country: 'Egypt' }, { city: 'Sharm El Sheikh', country: 'Egypt' },
-  { city: 'Cairo', country: 'Egypt' }, { city: 'Addis Ababa', country: 'Ethiopia' },
-  { city: 'Mahé', country: 'Seychelles' }, { city: 'Port Louis', country: 'Mauritius' },
-  { city: 'Praia', country: 'Cape Verde' }, { city: 'Abidjan', country: "Cote d'Ivoire" },
+  { city: 'Diani Beach', country: 'Kenya', lat: -4.2793, lng: 39.5911 }, { city: 'Watamu', country: 'Kenya', lat: -3.3530, lng: 40.0247 },
+  { city: 'Lamu Old Town', country: 'Kenya', lat: -2.2717, lng: 40.9020 }, { city: 'Nairobi', country: 'Kenya', lat: -1.2921, lng: 36.8219 },
+  { city: 'Naivasha', country: 'Kenya', lat: -0.7167, lng: 36.4333 }, { city: 'Zanzibar', country: 'Tanzania', lat: -6.1659, lng: 39.2026 },
+  { city: 'Arusha', country: 'Tanzania', lat: -3.3869, lng: 36.6830 }, { city: 'Dar es Salaam', country: 'Tanzania', lat: -6.7924, lng: 39.2083 },
+  { city: 'Kampala', country: 'Uganda', lat: 0.3476, lng: 32.5825 }, { city: 'Entebbe', country: 'Uganda', lat: 0.0512, lng: 32.4637 },
+  { city: 'Kigali', country: 'Rwanda', lat: -1.9441, lng: 30.0619 }, { city: 'Cape Town', country: 'South Africa', lat: -33.9249, lng: 18.4241 },
+  { city: 'Durban', country: 'South Africa', lat: -29.8587, lng: 31.0218 }, { city: 'Johannesburg', country: 'South Africa', lat: -26.2041, lng: 28.0473 },
+  { city: 'Stellenbosch', country: 'South Africa', lat: -33.9321, lng: 18.8602 }, { city: 'Marrakech', country: 'Morocco', lat: 31.6295, lng: -7.9811 },
+  { city: 'Essaouira', country: 'Morocco', lat: 31.5085, lng: -9.7595 }, { city: 'Tangier', country: 'Morocco', lat: 35.7595, lng: -5.8340 },
+  { city: 'Accra', country: 'Ghana', lat: 5.6037, lng: -0.1870 }, { city: 'Cape Coast', country: 'Ghana', lat: 5.1053, lng: -1.2466 },
+  { city: 'Lagos', country: 'Nigeria', lat: 6.5244, lng: 3.3792 }, { city: 'Abuja', country: 'Nigeria', lat: 9.0765, lng: 7.3986 },
+  { city: 'Dakar', country: 'Senegal', lat: 14.7167, lng: -17.4677 }, { city: 'Victoria Falls', country: 'Zimbabwe', lat: -17.9243, lng: 25.8572 },
+  { city: 'Windhoek', country: 'Namibia', lat: -22.5609, lng: 17.0658 }, { city: 'Swakopmund', country: 'Namibia', lat: -22.6784, lng: 14.5257 },
+  { city: 'Hurghada', country: 'Egypt', lat: 27.2579, lng: 33.8116 }, { city: 'Sharm El Sheikh', country: 'Egypt', lat: 27.9158, lng: 34.3300 },
+  { city: 'Cairo', country: 'Egypt', lat: 30.0444, lng: 31.2357 }, { city: 'Addis Ababa', country: 'Ethiopia', lat: 9.0250, lng: 38.7469 },
+  { city: 'Mahé', country: 'Seychelles', lat: -4.6796, lng: 55.4920 }, { city: 'Port Louis', country: 'Mauritius', lat: -20.1609, lng: 57.5012 },
+  { city: 'Praia', country: 'Cape Verde', lat: 14.9330, lng: -23.5133 }, { city: 'Abidjan', country: "Cote d'Ivoire", lat: 5.3600, lng: -4.0083 },
 ];
 
 const DESCRIPTORS = [
@@ -62,7 +62,9 @@ function generateProperties() {
         const tags = [profile.tagPool[i % profile.tagPool.length], profile.tagPool[(i + 2) % profile.tagPool.length], profile.tagPool[(i + 4) % profile.tagPool.length]];
         return { name: roomName, price, cap, tags: [...new Set(tags)] };
       });
-      properties.push({ name, location: loc.city, country: loc.country, type, rooms });
+      // Small deterministic jitter so same-city pins don't stack exactly on the map.
+      const jitter = (typeIdx - (TYPES.length - 1) / 2) * 0.012;
+      properties.push({ name, location: loc.city, country: loc.country, type, rooms, lat: loc.lat + jitter, lng: loc.lng + jitter });
     });
   });
   return properties;
@@ -214,8 +216,8 @@ async function seed() {
   if (propCount === 0) transaction(() => {
     generateProperties().forEach((p) => {
       const propId = id('prop');
-      db.prepare('INSERT INTO properties (id, name, location, country, type) VALUES (?,?,?,?,?)')
-        .run(propId, p.name, p.location, p.country, p.type);
+      db.prepare('INSERT INTO properties (id, name, location, country, type, lat, lng) VALUES (?,?,?,?,?,?,?)')
+        .run(propId, p.name, p.location, p.country, p.type, p.lat, p.lng);
       p.rooms.forEach((r) => {
         db.prepare('INSERT INTO rooms (id, property_id, name, price_cents, capacity, tags) VALUES (?,?,?,?,?,?)')
           .run(id('room'), propId, r.name, r.price, r.cap, JSON.stringify(r.tags));
@@ -227,9 +229,24 @@ async function seed() {
   const adminExists = db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail);
   if (!adminExists) {
     const passwordHash = await hashPassword('ChangeMe123!');
-    db.prepare(`INSERT INTO users (id, name, email, password_hash, role, wallet_balance_cents, created_at) VALUES (?,?,?,?,?,0,datetime('now'))`)
-      .run(id('usr'), 'Motion Admin', adminEmail, passwordHash, 'admin');
+    db.prepare(`INSERT INTO users (id, name, email, password_hash, role, department, wallet_balance_cents, created_at) VALUES (?,?,?,?,?,?,0,datetime('now'))`)
+      .run(id('usr'), 'Motion Admin', adminEmail, passwordHash, 'admin', 'General');
     console.log(`Seeded admin account: ${adminEmail} / ChangeMe123!  (change this immediately in any real deployment)`);
+  }
+
+  // Department-scoped admin demo logins — each sees only its own dashboard.
+  const DEPT_ADMINS = [
+    { email: 'sales@motion.africa', name: 'Sales Lead', department: 'Sales' },
+    { email: 'marketing@motion.africa', name: 'Marketing Lead', department: 'Marketing' },
+    { email: 'finance@motion.africa', name: 'Finance Lead', department: 'Finance' },
+    { email: 'ops@motion.africa', name: 'Operations Lead', department: 'Operations' },
+  ];
+  for (const d of DEPT_ADMINS) {
+    if (db.prepare('SELECT id FROM users WHERE email = ?').get(d.email)) continue;
+    const passwordHash = await hashPassword('ChangeMe123!');
+    db.prepare(`INSERT INTO users (id, name, email, password_hash, role, department, wallet_balance_cents, created_at) VALUES (?,?,?,?,'admin',?,0,datetime('now'))`)
+      .run(id('usr'), d.name, d.email, passwordHash, d.department);
+    console.log(`Seeded department admin: ${d.email} / ChangeMe123! (${d.department})`);
   }
 }
 

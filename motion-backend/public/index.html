@@ -6,6 +6,7 @@
 <title>Motion — Always Feel Connected</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='11' fill='%23063f3f'/%3E%3Cpath d='M6 15V9l3 3 3-4 3 4 3-3v6' stroke='%23fffcf7' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 </head>
 <body>
 
@@ -318,6 +319,21 @@
   </div>
 </div>
 
+<!-- ================= GALLERY LIGHTBOX (photos + video) ================= -->
+<div class="modal-overlay hidden" id="galleryModal">
+  <div class="card gallery-card" style="position:relative">
+    <button class="modal-close" id="galleryCloseBtn">✕</button>
+    <h3 id="galleryTitle">Property gallery</h3>
+    <div class="gallery-main" id="galleryMain"></div>
+    <div class="gallery-nav">
+      <button class="add-tier" id="galleryPrevBtn" style="width:auto">← Prev</button>
+      <span class="hint" id="galleryCount"></span>
+      <button class="add-tier" id="galleryNextBtn" style="width:auto">Next →</button>
+    </div>
+    <div class="gallery-thumbs" id="galleryThumbs"></div>
+  </div>
+</div>
+
 <!-- ================= APP SHELL (authenticated) ================= -->
 <div id="appShell" class="hidden">
   <main class="app-main">
@@ -394,12 +410,31 @@
               <div class="field"><label class="field-label">City / area</label><input class="text-input" id="hLocation" placeholder="e.g. Diani Beach"></div>
             </div>
             <div class="field"><label class="field-label">Country</label><select class="text-input" id="hCountry"></select></div>
+            <div class="grid-2">
+              <div class="field"><label class="field-label">Latitude (optional — shows on map)</label><input class="text-input" type="number" step="0.0001" id="hLat" placeholder="e.g. -4.2793"></div>
+              <div class="field"><label class="field-label">Longitude (optional)</label><input class="text-input" type="number" step="0.0001" id="hLng" placeholder="e.g. 39.5911"></div>
+            </div>
           </div>
 
           <div class="card">
             <h3>Rooms &amp; nightly rates (KES)</h3>
             <div id="hRoomList"></div>
             <button class="add-tier" id="hAddRoomBtn">+ Add room type</button>
+          </div>
+
+          <div class="card">
+            <h3>Photos &amp; video</h3>
+            <p class="hint" style="font-family:var(--font-body);font-size:12.5px;color:var(--ink-soft);margin:-6px 0 12px">Add multiple angles of the property — guests see these in the gallery before booking. First photo becomes the cover image.</p>
+            <div class="media-thumb-row" id="hMediaThumbs"></div>
+            <input type="file" id="hPhotoFile" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
+            <button class="add-tier" id="hAddPhotoBtn">+ Add photo</button>
+            <div class="field" style="margin-top:12px">
+              <label class="field-label">Video URL (direct .mp4/.webm/.mov link, optional)</label>
+              <div style="display:flex;gap:8px">
+                <input class="text-input" id="hVideoUrl" placeholder="https://example.com/property-tour.mp4">
+                <button class="add-tier" id="hAddVideoBtn" style="width:auto;white-space:nowrap;padding:0 16px">+ Add video</button>
+              </div>
+            </div>
           </div>
 
           <div class="card">
@@ -565,9 +600,14 @@
       <div class="stay-filters">
         <select class="text-input" id="stayCountryFilter" style="width:auto"><option value="">All countries</option></select>
         <div class="stay-type-chips" id="stayTypeChips"></div>
+        <div class="stay-view-toggle">
+          <button class="trip-btn active" id="stayViewList" data-mode="list">☰ List</button>
+          <button class="trip-btn" id="stayViewMap" data-mode="map">📍 Map</button>
+        </div>
       </div>
       <div class="property-strip-count" id="propertyStripCount"></div>
       <div class="property-strip" id="propertyStrip"></div>
+      <div class="hidden" id="stayMapWrap"><div id="stayMap"></div></div>
       <div class="stay-layout">
         <div><div class="card" id="roomList"><h3>Available rooms</h3></div></div>
         <div class="card dates-card">
@@ -630,17 +670,56 @@
     </section>
 
     <section class="panel" id="panel-admin">
-      <div class="panel-head"><h1>Revenue engine</h1><p>Adjust or waive commission per revenue line — takes effect on the next order, no deploy required.</p></div>
-      <div class="card">
-        <h3>Commission rules</h3>
-        <div class="rule-row" style="font-weight:700;font-size:11px;color:var(--ink-soft);text-transform:uppercase;font-family:var(--font-mono)">
-          <span>Line</span><span>Rate %</span><span>Flat fee (KES)</span><span>Active</span>
-        </div>
-        <div id="ruleList"><span class="hint">Loading…</span></div>
+      <div class="panel-head"><h1>Admin control center</h1><p>Sales, Marketing, Finance and Operations — each department sees only its own dashboard; a General admin sees all four.</p></div>
+      <div class="admin-subtabs" id="adminSubTabs"></div>
+
+      <div class="admin-view" id="adminview-sales">
+        <div class="card"><h3>GMV by product line (paid orders)</h3><div id="salesGmv"><span class="hint">Loading…</span></div></div>
+        <div class="card"><h3>Order funnel</h3><div id="salesFunnel"><span class="hint">Loading…</span></div></div>
+        <div class="card"><h3>Top stays by revenue</h3><div id="salesTopProperties"><span class="hint">Loading…</span></div></div>
+        <div class="card"><h3>Top events by revenue</h3><div id="salesTopEvents"><span class="hint">Loading…</span></div></div>
       </div>
-      <div class="card">
-        <h3>Revenue summary (all-time)</h3>
-        <div id="revenueSummary"><span class="hint">Loading…</span></div>
+
+      <div class="admin-view" id="adminview-marketing">
+        <div class="card"><h3>Acquisition funnel</h3><div id="mktFunnel"><span class="hint">Loading…</span></div></div>
+        <div class="card"><h3>Signups by role</h3><div id="mktByRole"><span class="hint">Loading…</span></div></div>
+        <div class="card"><h3>Signups — last 30 days</h3><div id="mktSignups"><span class="hint">Loading…</span></div></div>
+      </div>
+
+      <div class="admin-view" id="adminview-finance">
+        <div class="card"><h3>Commission rules</h3>
+          <div class="rule-row" style="font-weight:700;font-size:11px;color:var(--ink-soft);text-transform:uppercase;font-family:var(--font-mono)">
+            <span>Line</span><span>Rate %</span><span>Flat fee (KES)</span><span>Active</span>
+          </div>
+          <div id="ruleList"><span class="hint">Loading…</span></div>
+        </div>
+        <div class="card"><h3>Revenue summary</h3><div id="financeSummary"><span class="hint">Loading…</span></div></div>
+        <div class="card"><h3>Payout liability by product line</h3><div id="financePayout"><span class="hint">Loading…</span></div></div>
+        <div class="card"><h3>Payment reconciliation</h3><div id="financeReconciliation"><span class="hint">Loading…</span></div></div>
+      </div>
+
+      <div class="admin-view" id="adminview-operations">
+        <div class="card"><h3>Orders by product line &amp; status</h3><div id="opsOrders"><span class="hint">Loading…</span></div></div>
+        <div class="card"><h3>Flights near capacity (&gt;85% booked)</h3><div id="opsLowInventory"><span class="hint">Loading…</span></div></div>
+        <div class="card"><h3>Recent platform activity</h3><div id="opsActivity"><span class="hint">Loading…</span></div></div>
+      </div>
+
+      <div class="card" id="adminCreateCard">
+        <h3>Create a department admin login</h3>
+        <p class="hint" style="font-family:var(--font-body);font-size:12.5px;color:var(--ink-soft);margin:-6px 0 12px">Each department gets its own email/password, scoped to its own dashboard only.</p>
+        <div class="grid-2">
+          <div class="field"><label class="field-label">Name</label><input class="text-input" id="adminNewName" placeholder="Full name"></div>
+          <div class="field"><label class="field-label">Email</label><input class="text-input" id="adminNewEmail" placeholder="dept@motion.africa"></div>
+        </div>
+        <div class="grid-2">
+          <div class="field"><label class="field-label">Password</label><input class="text-input" type="password" id="adminNewPassword" placeholder="At least 8 characters"></div>
+          <div class="field"><label class="field-label">Department</label>
+            <select class="text-input" id="adminNewDept"><option>Sales</option><option>Marketing</option><option>Finance</option><option>Operations</option><option>General</option></select>
+          </div>
+        </div>
+        <div id="adminCreateError"></div>
+        <button class="btn-primary" id="adminCreateBtn">Create admin login</button>
+        <div class="card" style="margin-top:14px;background:var(--sand)"><h3>Existing admin logins</h3><div id="adminUsersList"><span class="hint">Loading…</span></div></div>
       </div>
     </section>
 
@@ -649,6 +728,7 @@
 
 <div class="toast" id="toast"><i></i><span id="toastMsg"></span></div>
 
+<script src="vendor/leaflet/leaflet.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

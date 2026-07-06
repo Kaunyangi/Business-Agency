@@ -12,9 +12,14 @@ const { audit } = require('../../utils/audit');
 
 const router = express.Router();
 
+function withMedia(property) {
+  const media = db.prepare('SELECT id, media_type, url FROM property_media WHERE property_id = ? ORDER BY sort_order').all(property.id);
+  return { ...property, media };
+}
+
 router.get('/', (req, res) => {
   const properties = db.prepare('SELECT * FROM properties').all();
-  const withRooms = properties.map((p) => ({
+  const withRooms = properties.map((p) => withMedia({
     ...p,
     rooms: db.prepare('SELECT * FROM rooms WHERE property_id = ?').all(p.id).map((r) => ({ ...r, tags: JSON.parse(r.tags || '[]') })),
   }));
@@ -28,12 +33,26 @@ const roomSchema = z.object({
   tags: z.array(z.string().max(30)).max(8).default([]),
 });
 
+// Photos are demo data: URLs (same trust model as event posters); videos must
+// be a direct https file link — no iframe embeds, so there is no third-party
+// src ever placed in the DOM, closing off the embed-injection surface entirely.
+const mediaSchema = z.object({
+  media_type: z.enum(['photo', 'video']),
+  url: z.string().min(1).max(2_000_000),
+}).refine((m) => {
+  if (m.media_type === 'photo') return /^data:image\/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+/=]+$/.test(m.url);
+  return /^https:\/\/.+\.(mp4|webm|mov)$/i.test(m.url);
+}, { message: 'Invalid media URL for its type' });
+
 const propertySchema = z.object({
   name: z.string().min(2).max(120),
   location: z.string().min(2).max(120),
   country: z.string().min(2).max(80),
   type: z.string().max(40).default('Villa'),
+  lat: z.number().min(-90).max(90).optional(),
+  lng: z.number().min(-180).max(180).optional(),
   rooms: z.array(roomSchema).min(1, 'At least one room is required'),
+  media: z.array(mediaSchema).max(12).default([]),
 });
 
 // Host-only — list a new property with its room inventory in one call.
@@ -43,16 +62,20 @@ router.post('/', requireAuth, requireRole('host', 'admin'), validate(propertySch
     const propId = id('prop');
 
     transaction(() => {
-      db.prepare('INSERT INTO properties (id, name, location, country, type, owner_id) VALUES (?,?,?,?,?,?)')
-        .run(propId, body.name, body.location, body.country, body.type, req.user.id);
+      db.prepare('INSERT INTO properties (id, name, location, country, type, owner_id, lat, lng) VALUES (?,?,?,?,?,?,?,?)')
+        .run(propId, body.name, body.location, body.country, body.type, req.user.id, body.lat ?? null, body.lng ?? null);
 
       const insertRoom = db.prepare('INSERT INTO rooms (id, property_id, name, price_cents, capacity, tags) VALUES (?,?,?,?,?,?)');
       body.rooms.forEach((r) => insertRoom.run(id('room'), propId, r.name, r.price_cents, r.capacity, JSON.stringify(r.tags)));
+
+      const insertMedia = db.prepare('INSERT INTO property_media (id, property_id, media_type, url, sort_order) VALUES (?,?,?,?,?)');
+      body.media.forEach((m, i) => insertMedia.run(id('media'), propId, m.media_type, m.url, i));
     });
 
-    audit(req, req.user.id, 'property.list', { propId, rooms: body.rooms.length });
-    const property = db.prepare('SELECT * FROM properties WHERE id = ?').get(propId);
+    audit(req, req.user.id, 'property.list', { propId, rooms: body.rooms.length, media: body.media.length });
+    let property = db.prepare('SELECT * FROM properties WHERE id = ?').get(propId);
     property.rooms = db.prepare('SELECT * FROM rooms WHERE property_id = ?').all(propId).map((r) => ({ ...r, tags: JSON.parse(r.tags || '[]') }));
+    property = withMedia(property);
     res.status(201).json({ property });
   } catch (err) { next(err); }
 });
@@ -65,7 +88,7 @@ router.get('/mine/dashboard', requireAuth, requireRole('host', 'admin'), (req, r
     const bookingsCount = db.prepare(
       `SELECT COUNT(*) AS n FROM room_bookings rb JOIN rooms r ON r.id = rb.room_id WHERE r.property_id = ? AND rb.status = 'confirmed'`
     ).get(p.id).n;
-    return { ...p, rooms, bookingsCount };
+    return withMedia({ ...p, rooms, bookingsCount });
   });
   res.json({ properties: withStats });
 });
