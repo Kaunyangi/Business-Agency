@@ -668,54 +668,86 @@ async function loadMyProperties() {
 }
 
 /* =========================================================
-   BUY TICKETS ("What's on")
+   BUY TICKETS ("What's on") — Mookh / Hustle Sasa style scroll feed
    ========================================================= */
 let eventsCache = [];
 let eventCart = {};
+let eventsCategoryFilter = '';
+let eventsFeedObserver = null;
 
 async function loadEvents() {
   try {
     const { events } = await api('/events');
     eventsCache = events;
-    $('#eventsList').innerHTML = events.map(e => {
-      eventCart[e.id] = eventCart[e.id] || {};
-      return `
-      <div class="card event-buy-card" data-event="${e.id}">
-        <div class="poster" style="${safePosterCSS(e.poster_data_url) || `background:linear-gradient(150deg,#0b6e6e,#123f3f)`}"></div>
-        <div>
-          <span class="preview-chip">${esc(e.category)}</span>
-          <div style="font-family:var(--font-display);font-size:17px;font-weight:600">${esc(e.name)}</div>
-          <div class="hint">${esc(e.venue)}${e.city ? ', ' + esc(e.city) : ''} · ${esc(e.event_date)}${e.gate_time ? ' · gates ' + esc(e.gate_time) : ''}</div>
-          <div style="margin-top:10px">
-            ${e.tiers.map(t => {
-              const remaining = t.quantity_total - t.quantity_sold;
-              const q = eventCart[e.id][t.id] || 0;
-              return `<div class="buy-row" data-tier="${t.id}" data-price="${t.price_cents}" data-remaining="${remaining}">
-                <div><div class="name">${esc(t.name)}</div><div class="avail">${fmtKES(t.price_cents)} · ${remaining} left</div></div>
-                <div class="stepper"><button class="qm" ${q <= 0 ? 'disabled' : ''}>−</button><span>${q}</span><button class="qp" ${q >= remaining ? 'disabled' : ''}>+</button></div>
-              </div>`;
-            }).join('') || '<span class="hint">No ticket categories left.</span>'}
-          </div>
-          <div class="event-buy-foot">
-            <b class="event-total" id="total-${e.id}">${fmtKES(0)}</b>
-            <select class="text-input" id="pay-${e.id}"><option value="wallet">Motion Pay wallet</option><option value="mpesa">M-Pesa</option><option value="card">Card</option></select>
-            <input class="text-input hidden" style="width:150px" id="ref-${e.id}" placeholder="254712345678">
-            <button class="btn-primary buy-btn" style="width:auto" data-event="${e.id}">Buy tickets</button>
-          </div>
-        </div>
-      </div>`;
-    }).join('') || '<div class="card"><span class="hint">No events published yet — check the Organizer Studio, or come back soon.</span></div>';
+    renderEventsFilterBar();
+    renderEventsFeed();
+  } catch (err) { $('#eventsFeed').innerHTML = errBoxHTML(err); }
+}
 
-    $$('#eventsList select').forEach(sel => sel.addEventListener('change', () => {
-      const eventId = sel.id.replace('pay-', '');
-      $('#ref-' + eventId).classList.toggle('hidden', sel.value === 'wallet');
-    }));
-  } catch (err) { $('#eventsList').innerHTML = errBoxHTML(err); }
+function renderEventsFilterBar() {
+  const cats = [...new Set(eventsCache.map(e => e.category).filter(Boolean))].sort();
+  $('#eventsFilterBar').innerHTML = ['<button class="events-filter-chip active" data-cat="">All</button>']
+    .concat(cats.map(c => `<button class="events-filter-chip" data-cat="${esc(c)}">${esc(c)}</button>`)).join('');
+}
+$('#eventsFilterBar').addEventListener('click', e => {
+  const chip = e.target.closest('.events-filter-chip'); if (!chip) return;
+  eventsCategoryFilter = chip.dataset.cat;
+  $$('#eventsFilterBar .events-filter-chip').forEach(c => c.classList.toggle('active', c === chip));
+  renderEventsFeed();
+});
+
+function renderEventsFeed() {
+  const list = eventsCategoryFilter ? eventsCache.filter(e => e.category === eventsCategoryFilter) : eventsCache;
+  const feed = $('#eventsFeed');
+  if (eventsFeedObserver) { eventsFeedObserver.disconnect(); eventsFeedObserver = null; }
+  feed.innerHTML = list.map((e, i) => {
+    eventCart[e.id] = eventCart[e.id] || {};
+    const media = safePosterCSS(e.poster_data_url) || `background:linear-gradient(150deg,${AIRLINE_COLORS[i % AIRLINE_COLORS.length]},#0c1414)`;
+    const dateStr = e.event_date ? new Date(e.event_date + 'T00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase() : 'DATE TBC';
+    return `
+    <div class="event-scene" data-event="${e.id}">
+      <div class="event-scene-media" style="${media}"></div>
+      <div class="event-scene-content">
+        <span class="event-scene-cat">${esc(e.category)}</span>
+        <div class="event-scene-title">${esc(e.name)}</div>
+        <div class="event-scene-meta">${esc(e.venue)}${e.city ? ', ' + esc(e.city) : ''} · ${dateStr}${e.gate_time ? ' · GATES ' + esc(e.gate_time.toUpperCase()) : ''}</div>
+        <div class="event-scene-tiers">
+          ${e.tiers.map(t => {
+            const remaining = t.quantity_total - t.quantity_sold;
+            const q = eventCart[e.id][t.id] || 0;
+            return `<div class="buy-row" data-tier="${t.id}" data-price="${t.price_cents}" data-remaining="${remaining}">
+              <div><div class="name">${esc(t.name)}</div><div class="avail">${fmtKES(t.price_cents)} · ${remaining} left</div></div>
+              <div class="stepper"><button class="qm" ${q <= 0 ? 'disabled' : ''}>−</button><span>${q}</span><button class="qp" ${q >= remaining ? 'disabled' : ''}>+</button></div>
+            </div>`;
+          }).join('') || '<span class="hint" style="color:rgba(255,252,247,.7)">No ticket categories left.</span>'}
+        </div>
+        <div class="event-scene-foot">
+          <b class="event-total" id="total-${e.id}">${fmtKES(0)}</b>
+          <select class="text-input" id="pay-${e.id}"><option value="wallet">Motion Pay wallet</option><option value="mpesa">M-Pesa</option><option value="card">Card</option></select>
+          <input class="text-input hidden" style="width:150px" id="ref-${e.id}" placeholder="254712345678">
+          <button class="btn-primary buy-btn" style="width:auto" data-event="${e.id}">Buy tickets</button>
+        </div>
+      </div>
+      ${i === 0 && list.length > 1 ? '<div class="events-feed-scrolldown">Scroll for more ↓</div>' : ''}
+    </div>`;
+  }).join('') || '<div class="card"><span class="hint">No events published yet — check the Organizer Studio, or come back soon.</span></div>';
+
+  $$('#eventsFeed select').forEach(sel => sel.addEventListener('change', () => {
+    const eventId = sel.id.replace('pay-', '');
+    $('#ref-' + eventId).classList.toggle('hidden', sel.value === 'wallet');
+  }));
+
+  if (list.length) {
+    eventsFeedObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('in-view'); });
+    }, { root: feed, threshold: 0.35 });
+    $$('#eventsFeed .event-scene').forEach(scene => eventsFeedObserver.observe(scene));
+  }
 }
 
 document.addEventListener('click', e => {
   const row = e.target.closest('.buy-row');
-  if (row && row.closest('#eventsList') && (e.target.classList.contains('qm') || e.target.classList.contains('qp'))) {
+  if (row && row.closest('#eventsFeed') && (e.target.classList.contains('qm') || e.target.classList.contains('qp'))) {
     const card = row.closest('[data-event]');
     const eventId = card.dataset.event;
     const tierId = row.dataset.tier;
@@ -1394,11 +1426,14 @@ function renderRooms() {
       <div class="room-price">
         <div class="amt">${fmtKES(r.price_cents)}</div>
         <div class="per">per night</div>
+        <button class="view3d-btn room-3d-btn" data-i="${i}" style="width:100%;justify-content:center;margin-bottom:6px">🧊 View room in 3D</button>
         <button class="room-select-btn">${selectedRoom === i ? 'Selected' : 'Select room'}</button>
       </div>
     </div>`).join('');
 }
 $('#roomList').addEventListener('click', e => {
+  const btn3d = e.target.closest('.room-3d-btn');
+  if (btn3d) { open3DVilla(filteredProperties[selectedPropertyIdx], filteredProperties[selectedPropertyIdx].rooms[+btn3d.dataset.i]); return; }
   const card = e.target.closest('.room-card'); if (!card) return;
   selectedRoom = +card.dataset.i; renderRooms(); computeStayTotal();
 });
@@ -1636,6 +1671,122 @@ $('#adminCreateBtn').addEventListener('click', async () => {
   } catch (err) { $('#adminCreateError').innerHTML = errBoxHTML(err); }
   finally { btn.disabled = false; btn.textContent = 'Create admin login'; }
 });
+
+/* =========================================================
+   3D PREVIEW — CSS-3D cabin & villa-room scenes (no external libs,
+   works unmodified under the strict CSP: pure transforms, no WebGL/canvas)
+   ========================================================= */
+let scene3dRotation = { x: -10, y: 26 };
+let scene3dDragging = false, scene3dDragStart = null;
+
+function applyScene3DTransform() {
+  $('#scene3dObject').style.transform = `translate(-50%,-50%) rotateX(${scene3dRotation.x}deg) rotateY(${scene3dRotation.y}deg)`;
+}
+function open3DModal(title, sub, html) {
+  $('#scene3dTitle').textContent = title;
+  $('#scene3dSub').textContent = sub || '';
+  $('#scene3dObject').innerHTML = html;
+  scene3dRotation = { x: -10, y: 26 };
+  applyScene3DTransform();
+  $('#scene3dModal').classList.remove('hidden');
+}
+$('#scene3dCloseBtn').addEventListener('click', () => $('#scene3dModal').classList.add('hidden'));
+$('#scene3dModal').addEventListener('click', e => { if (e.target.id === 'scene3dModal') $('#scene3dModal').classList.add('hidden'); });
+const scene3dStage = $('#scene3dStage');
+scene3dStage.addEventListener('pointerdown', e => {
+  scene3dDragging = true;
+  scene3dDragStart = { x: e.clientX, y: e.clientY, rot: { ...scene3dRotation } };
+  scene3dStage.setPointerCapture(e.pointerId);
+});
+scene3dStage.addEventListener('pointermove', e => {
+  if (!scene3dDragging) return;
+  const dx = e.clientX - scene3dDragStart.x, dy = e.clientY - scene3dDragStart.y;
+  scene3dRotation.y = scene3dDragStart.rot.y + dx * 0.4;
+  scene3dRotation.x = Math.max(-60, Math.min(60, scene3dDragStart.rot.x - dy * 0.3));
+  applyScene3DTransform();
+});
+['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => scene3dStage.addEventListener(ev, () => { scene3dDragging = false; }));
+
+/* ---- seat cabin scene (flight / bus / SGR share this) ---- */
+function buildCabinSceneHTML(rowsMeta) {
+  const seatSize = 26, gapX = 8, rowDepth = 44, aisleGap = 24, wallHeight = 130;
+  const rowWidths = rowsMeta.map(row => row.seats.length * seatSize + Math.max(row.seats.length - 1, 0) * gapX + aisleGap);
+  const cabinWidth = Math.max(...rowWidths, 120) + 30;
+  const totalDepth = Math.max(rowsMeta.length * rowDepth, rowDepth);
+
+  const rowsHTML = rowsMeta.map((row, ri) => {
+    const z = -ri * rowDepth;
+    const seatEls = row.seats.map((s, ci) => {
+      const cls = ['seat3d'];
+      if (s.chosen) cls.push('chosen');
+      else if (s.status === 'booked') cls.push('taken');
+      if (s.cabinClass === 'business') cls.push('biz');
+      const isLast = ci === row.seats.length - 1;
+      const marginRight = isLast ? '0' : (ci + 1 === row.aisleAfter ? (gapX + aisleGap) + 'px' : gapX + 'px');
+      return `<span class="${cls.join(' ')}" style="margin-right:${marginRight}" title="${esc(s.letter)}"></span>`;
+    }).join('');
+    return `<div class="cabin3d-row" style="transform:translate3d(-50%,40px,${z}px)">${seatEls}</div>`;
+  }).join('');
+
+  const windowsHTML = rowsMeta.map((row, ri) => {
+    const left = ri * rowDepth + rowDepth / 2 - 7;
+    return `<div class="cabin3d-window" style="width:16px;height:11px;left:${left}px;top:36px"></div>`;
+  }).join('');
+
+  const floor = `<div class="cabin3d-plane" style="width:${cabinWidth}px;height:${totalDepth}px;left:${-cabinWidth / 2}px;top:${-totalDepth / 2}px;transform:rotateX(90deg) translateZ(86px);background:linear-gradient(90deg,#232a28,#3a4340,#232a28)"></div>`;
+  const ceiling = `<div class="cabin3d-plane" style="width:${cabinWidth}px;height:${totalDepth}px;left:${-cabinWidth / 2}px;top:${-totalDepth / 2}px;transform:rotateX(90deg) translateZ(-44px);background:linear-gradient(90deg,#dcd6c8,#fffcf7,#dcd6c8)"></div>`;
+  const leftWall = `<div class="cabin3d-plane" style="width:${totalDepth}px;height:${wallHeight}px;left:${-totalDepth / 2}px;top:-28px;transform:translateX(${-cabinWidth / 2}px) rotateY(90deg);background:linear-gradient(180deg,#e2dccd,#b7ae9a 65%,#8f8776)">${windowsHTML}</div>`;
+  const rightWall = `<div class="cabin3d-plane" style="width:${totalDepth}px;height:${wallHeight}px;left:${-totalDepth / 2}px;top:-28px;transform:translateX(${cabinWidth / 2}px) rotateY(-90deg);background:linear-gradient(180deg,#e2dccd,#b7ae9a 65%,#8f8776)">${windowsHTML}</div>`;
+
+  return floor + ceiling + leftWall + rightWall + rowsHTML;
+}
+function seatRowsMeta(seats, chosenSet, aisleAfter) {
+  const byRow = {};
+  seats.forEach(s => { (byRow[s.row_no] = byRow[s.row_no] || []).push(s); });
+  return Object.keys(byRow).sort((a, b) => a - b).map(r => ({
+    aisleAfter,
+    seats: byRow[r].sort((a, b) => a.letter.localeCompare(b.letter)).map(s => ({
+      letter: s.letter, cabinClass: s.cabin_class, status: s.status, chosen: chosenSet.has(s.id),
+    })),
+  }));
+}
+$('#flight3DBtn').addEventListener('click', () => {
+  const leg = flightLegs[flightLeg];
+  if (!leg.flight || !leg.seats.length) return toast('Select seats first', true);
+  const cols = Math.max(...leg.seats.map(s => s.letter.charCodeAt(0) - 64));
+  const rowsMeta = seatRowsMeta(leg.seats, leg.chosen, cols > 4 ? 3 : 2);
+  open3DModal(`${leg.flight.airline} ${leg.flight.flight_no}`, `${leg.flight.origin} → ${leg.flight.destination} · interactive cabin preview`, buildCabinSceneHTML(rowsMeta));
+});
+$('#bus3DBtn').addEventListener('click', () => {
+  if (!busTrip || !busSeats.length) return toast('Select a coach first', true);
+  open3DModal(`${busTrip.operator} ${busTrip.coach_no}`, `${busTrip.origin} → ${busTrip.destination} · interactive coach preview`, buildCabinSceneHTML(seatRowsMeta(busSeats, busChosen, 2)));
+});
+$('#sgr3DBtn').addEventListener('click', () => {
+  if (!sgrTrip || !sgrSeats.length) return toast('Select a coach first', true);
+  open3DModal('Madaraka Express', `${sgrTrip.origin} → ${sgrTrip.destination} · interactive coach preview`, buildCabinSceneHTML(seatRowsMeta(sgrSeats, sgrChosen, 3)));
+});
+
+/* ---- villa room diorama ---- */
+function open3DVilla(property, room) {
+  if (!property) return;
+  const photos = (property.media || []).filter(m => m.media_type === 'photo').map(m => m.url);
+  const backCSS = photos[0] ? safePosterCSS(photos[0]) : '';
+  const sideCSS = photos[1] ? safePosterCSS(photos[1]) : '';
+  const floorCSS = photos[2] ? safePosterCSS(photos[2]) : '';
+  const title = room ? `${room.name} — ${property.name}` : property.name;
+  const sub = `${property.location}${property.country ? ', ' + property.country : ''} · interactive room preview`;
+  open3DModal(title, sub, buildVillaRoomHTML(backCSS, sideCSS, floorCSS));
+}
+function buildVillaRoomHTML(backCSS, sideCSS, floorCSS) {
+  const w = 260, d = 260, h = 170;
+  return `
+    <div class="room3d-face floor" style="width:${w}px;height:${d}px;left:${-w / 2}px;top:${-d / 2}px;transform:rotateX(90deg) translateZ(${h / 2}px);${floorCSS || 'background:linear-gradient(160deg,#6b5a44,#4a3d2e)'}"></div>
+    <div class="room3d-face ceiling" style="width:${w}px;height:${d}px;left:${-w / 2}px;top:${-d / 2}px;transform:rotateX(90deg) translateZ(${-h / 2}px);background:linear-gradient(180deg,#fffcf7,#e9e4d8)"></div>
+    <div class="room3d-face back" style="width:${w}px;height:${h}px;left:${-w / 2}px;top:${-h / 2}px;transform:translateZ(${-d / 2}px);${backCSS || 'background:linear-gradient(150deg,#0b6e6e,#123f3f)'}"></div>
+    <div class="room3d-face left" style="width:${d}px;height:${h}px;left:${-d / 2}px;top:${-h / 2}px;transform:translateX(${-w / 2}px) rotateY(90deg);${sideCSS || 'background:linear-gradient(150deg,#123f3f,#0b6e6e)'}"></div>
+    <div class="room3d-tag" style="left:${-w / 2 + 10}px;top:${h / 2 - 18}px;transform:translateZ(${d / 2 - 4}px)">Motion · 3D room preview</div>
+  `;
+}
 
 /* =========================================================
    BOOT

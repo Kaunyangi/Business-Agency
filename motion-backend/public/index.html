@@ -334,6 +334,19 @@
   </div>
 </div>
 
+<!-- ================= 3D PREVIEW (cabin / villa room) ================= -->
+<div class="modal-overlay hidden" id="scene3dModal">
+  <div class="card scene3d-card" style="position:relative">
+    <button class="modal-close" id="scene3dCloseBtn">✕</button>
+    <h3 id="scene3dTitle">3D preview</h3>
+    <p class="hint" id="scene3dSub" style="font-family:var(--font-body);font-size:12.5px;color:var(--ink-soft);margin:-6px 0 4px"></p>
+    <div class="scene3d-stage" id="scene3dStage">
+      <div class="scene3d-object" id="scene3dObject"></div>
+    </div>
+    <div class="scene3d-hint">Drag to rotate the scene</div>
+  </div>
+</div>
+
 <!-- ================= APP SHELL (authenticated) ================= -->
 <div id="appShell" class="hidden">
   <main class="app-main">
@@ -460,10 +473,10 @@
     </section>
 
     <section class="panel" id="panel-buy">
-      <div class="panel-head"><h1>What's on</h1><p>Live events from the Motion catalogue. Pick your ticket categories and pay from Motion Pay, M-Pesa, or card.</p></div>
-      <div class="card buyer-details-card">
-        <h3>Your details</h3>
-        <p class="hint" style="font-family:var(--font-body);font-size:12.5px;color:var(--ink-soft);margin:-6px 0 12px">Used to issue your ticket and for support — only your name is printed on the ticket, exactly as typed.</p>
+      <div class="panel-head"><h1>What's on</h1><p>Scroll the live feed — every organiser's event, one full screen at a time. Pick your ticket categories and pay from Motion Pay, M-Pesa, or card.</p></div>
+      <details class="card buyer-details-card">
+        <summary style="cursor:pointer;font-family:var(--font-display);font-weight:600;font-size:15px">Your details <span class="hint" style="font-family:var(--font-body);font-weight:400;font-size:12px">(tap to edit — used on your ticket)</span></summary>
+        <p class="hint" style="font-family:var(--font-body);font-size:12.5px;color:var(--ink-soft);margin:10px 0 12px">Only your name is printed on the ticket, exactly as typed.</p>
         <div class="grid-2">
           <div class="field"><label class="field-label">Full name</label><input class="text-input" id="ticketBuyerName" placeholder="As it should appear on the ticket"></div>
           <div class="field"><label class="field-label">Phone</label><input class="text-input" id="ticketBuyerPhone" placeholder="254712345678"></div>
@@ -472,8 +485,9 @@
           <div class="field"><label class="field-label">Email</label><input class="text-input" id="ticketBuyerEmail" placeholder="you@example.com"></div>
           <div class="field"><label class="field-label">ID / passport no. (optional)</label><input class="text-input" id="ticketBuyerId" placeholder="Optional"></div>
         </div>
-      </div>
-      <div id="eventsList"><span class="hint">Loading events…</span></div>
+      </details>
+      <div class="events-filter-bar" id="eventsFilterBar"></div>
+      <div class="events-feed" id="eventsFeed"><span class="hint">Loading events…</span></div>
     </section>
 
     <section class="panel" id="panel-flight">
@@ -504,6 +518,7 @@
             <span><i style="background:#e4ded0;border-color:#e4ded0"></i>Booked</span>
             <span><i style="border-color:#5b7fc7"></i>Business</span>
           </div>
+          <button class="view3d-btn" id="flight3DBtn" style="margin-top:12px">🧊 View cabin in 3D</button>
         </div>
         <div class="fare-box card">
           <h3>Fare summary</h3>
@@ -540,6 +555,7 @@
             <span><i style="background:#0b6e6e;border-color:#0b6e6e"></i>Selected</span>
             <span><i style="background:#e4ded0;border-color:#e4ded0"></i>Booked</span>
           </div>
+          <button class="view3d-btn" id="bus3DBtn" style="margin-top:12px">🧊 View coach in 3D</button>
         </div>
         <div class="fare-box card">
           <h3>Fare summary</h3>
@@ -577,6 +593,7 @@
             <span><i style="background:#e4ded0;border-color:#e4ded0"></i>Booked</span>
             <span><i style="border-color:#5b7fc7"></i>First Class</span>
           </div>
+          <button class="view3d-btn" id="sgr3DBtn" style="margin-top:12px">🧊 View coach in 3D</button>
         </div>
         <div class="fare-box card">
           <h3>Fare summary</h3>
