@@ -546,17 +546,6 @@ input.text-input:focus, select.text-input:focus, textarea.text-input:focus{outli
 .events-feed-scrolldown{position:absolute;bottom:14px;right:20px;z-index:2;font-family:var(--font-mono);font-size:10.5px;color:rgba(255,252,247,.75);letter-spacing:.08em;text-transform:uppercase;display:flex;align-items:center;gap:6px;animation:bobDown 1.8s infinite;}
 @keyframes bobDown{0%,100%{transform:translateY(0);opacity:.7}50%{transform:translateY(5px);opacity:1}}
 
-/* ========================================================= ROUTE MAP (real GIS — Leaflet + OpenStreetMap) ========================================================= */
-.view3d-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--paper);padding:7px 13px;border-radius:100px;font-size:11.5px;font-weight:700;color:var(--ink);}
-.routemap-card{width:94vw;max-width:760px;}
-#routeMap{height:min(50vh,420px);border-radius:16px;overflow:hidden;margin-top:10px;border:1px solid var(--line);}
-.route-pin{font-size:22px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4));}
-.route-pin.moving{font-size:19px;}
-.routemap-stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
-.routemap-stat{flex:1;min-width:140px;background:var(--sand);border-radius:12px;padding:10px 14px;}
-.routemap-stat .lbl{display:block;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-bottom:4px;}
-.routemap-stat .val{font-family:var(--font-display);font-size:15px;font-weight:600;}
-
 /* ========================================================= TOAST ========================================================= */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);padding:12px 20px;border-radius:100px;font-size:13px;opacity:0;pointer-events:none;transition:all .25s ease;z-index:300;display:flex;align-items:center;gap:8px;max-width:90vw;text-align:center;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
