@@ -334,16 +334,14 @@
   </div>
 </div>
 
-<!-- ================= 3D PREVIEW (cabin / villa room) ================= -->
-<div class="modal-overlay hidden" id="scene3dModal">
-  <div class="card scene3d-card" style="position:relative">
-    <button class="modal-close" id="scene3dCloseBtn">✕</button>
-    <h3 id="scene3dTitle">3D preview</h3>
-    <p class="hint" id="scene3dSub" style="font-family:var(--font-body);font-size:12.5px;color:var(--ink-soft);margin:-6px 0 4px"></p>
-    <div class="scene3d-stage" id="scene3dStage">
-      <div class="scene3d-object" id="scene3dObject"></div>
-    </div>
-    <div class="scene3d-hint">Drag to rotate the scene</div>
+<!-- ================= ROUTE MAP (live GIS route — origin, destination, ETA) ================= -->
+<div class="modal-overlay hidden" id="routeMapModal">
+  <div class="card routemap-card" style="position:relative">
+    <button class="modal-close" id="routeMapCloseBtn">✕</button>
+    <h3 id="routeMapTitle">Route map</h3>
+    <p class="hint" id="routeMapSub" style="font-family:var(--font-body);font-size:12.5px;color:var(--ink-soft);margin:-6px 0 10px"></p>
+    <div id="routeMap"></div>
+    <div class="routemap-stats" id="routeMapStats"></div>
   </div>
 </div>
 
@@ -518,7 +516,7 @@
             <span><i style="background:#e4ded0;border-color:#e4ded0"></i>Booked</span>
             <span><i style="border-color:#5b7fc7"></i>Business</span>
           </div>
-          <button class="view3d-btn" id="flight3DBtn" style="margin-top:12px">🧊 View cabin in 3D</button>
+          <button class="view3d-btn" id="flightRouteMapBtn" style="margin-top:12px">📍 View route map</button>
         </div>
         <div class="fare-box card">
           <h3>Fare summary</h3>
@@ -555,7 +553,7 @@
             <span><i style="background:#0b6e6e;border-color:#0b6e6e"></i>Selected</span>
             <span><i style="background:#e4ded0;border-color:#e4ded0"></i>Booked</span>
           </div>
-          <button class="view3d-btn" id="bus3DBtn" style="margin-top:12px">🧊 View coach in 3D</button>
+          <button class="view3d-btn" id="busRouteMapBtn" style="margin-top:12px">📍 View route map</button>
         </div>
         <div class="fare-box card">
           <h3>Fare summary</h3>
@@ -593,7 +591,7 @@
             <span><i style="background:#e4ded0;border-color:#e4ded0"></i>Booked</span>
             <span><i style="border-color:#5b7fc7"></i>First Class</span>
           </div>
-          <button class="view3d-btn" id="sgr3DBtn" style="margin-top:12px">🧊 View coach in 3D</button>
+          <button class="view3d-btn" id="sgrRouteMapBtn" style="margin-top:12px">📍 View route map</button>
         </div>
         <div class="fare-box card">
           <h3>Fare summary</h3>

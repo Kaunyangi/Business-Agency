@@ -1426,14 +1426,11 @@ function renderRooms() {
       <div class="room-price">
         <div class="amt">${fmtKES(r.price_cents)}</div>
         <div class="per">per night</div>
-        <button class="view3d-btn room-3d-btn" data-i="${i}" style="width:100%;justify-content:center;margin-bottom:6px">🧊 View room in 3D</button>
         <button class="room-select-btn">${selectedRoom === i ? 'Selected' : 'Select room'}</button>
       </div>
     </div>`).join('');
 }
 $('#roomList').addEventListener('click', e => {
-  const btn3d = e.target.closest('.room-3d-btn');
-  if (btn3d) { open3DVilla(filteredProperties[selectedPropertyIdx], filteredProperties[selectedPropertyIdx].rooms[+btn3d.dataset.i]); return; }
   const card = e.target.closest('.room-card'); if (!card) return;
   selectedRoom = +card.dataset.i; renderRooms(); computeStayTotal();
 });
@@ -1673,120 +1670,82 @@ $('#adminCreateBtn').addEventListener('click', async () => {
 });
 
 /* =========================================================
-   3D PREVIEW — CSS-3D cabin & villa-room scenes (no external libs,
-   works unmodified under the strict CSP: pure transforms, no WebGL/canvas)
+   ROUTE MAP — real GIS map (Leaflet + OpenStreetMap, live tiles),
+   Uber-style: origin/destination pins, a route line, a moving
+   marker en route, and live distance/duration for flights, buses, SGR.
    ========================================================= */
-let scene3dRotation = { x: -10, y: 26 };
-let scene3dDragging = false, scene3dDragStart = null;
-
-function applyScene3DTransform() {
-  $('#scene3dObject').style.transform = `translate(-50%,-50%) rotateX(${scene3dRotation.x}deg) rotateY(${scene3dRotation.y}deg)`;
+const ROUTE_COORDS = {
+  'Nairobi Wilson': [-1.3216, 36.8148], 'Nairobi JKIA': [-1.3192, 36.9278], 'Nairobi': [-1.2921, 36.8219],
+  'Nairobi Terminus': [-1.3346, 36.8862], 'Mombasa Moi': [-4.0348, 39.5942], 'Mombasa': [-4.0435, 39.6682],
+  'Mombasa Terminus': [-4.0026, 39.6474], 'Ukunda (Diani)': [-4.3167, 39.5667], 'Kisumu': [-0.0917, 34.7286],
+  'Eldoret': [0.4044, 35.2698], 'Malindi': [-3.2280, 40.1017], 'Lamu (Manda)': [-2.2528, 40.9106],
+  'Nanyuki': [0.0167, 37.0333], 'Isiolo': [0.3546, 37.5822], 'Marsabit': [2.3284, 37.9899],
+  'Arusha': [-3.3869, 36.6829], 'Dar es Salaam': [-6.7924, 39.2083], 'Addis Ababa': [9.0054, 38.7636],
+  'Nakuru': [-0.3031, 36.0800], 'Naivasha': [-0.7172, 36.4310], 'Naivasha Terminus': [-0.7172, 36.4310],
+  'Busia': [0.4608, 34.1115], 'Kampala': [0.3476, 32.5825],
+};
+function haversineKm(a, b) {
+  const toRad = d => d * Math.PI / 180, R = 6371;
+  const dLat = toRad(b[0] - a[0]), dLng = toRad(b[1] - a[1]);
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
 }
-function open3DModal(title, sub, html) {
-  $('#scene3dTitle').textContent = title;
-  $('#scene3dSub').textContent = sub || '';
-  $('#scene3dObject').innerHTML = html;
-  scene3dRotation = { x: -10, y: 26 };
-  applyScene3DTransform();
-  $('#scene3dModal').classList.remove('hidden');
+let routeMapInstance = null, routeMapAnimId = null;
+function openRouteMap(originName, destName, icon, title, durationMinutes) {
+  $('#routeMapTitle').textContent = title;
+  $('#routeMapSub').textContent = `${originName} → ${destName} · live route`;
+  $('#routeMapModal').classList.remove('hidden');
+  const from = ROUTE_COORDS[originName], to = ROUTE_COORDS[destName];
+  if (routeMapAnimId) { cancelAnimationFrame(routeMapAnimId); routeMapAnimId = null; }
+  if (!from || !to) {
+    $('#routeMap').innerHTML = '';
+    $('#routeMapStats').innerHTML = '<p class="hint">Map coordinates aren\'t available for this route yet.</p>';
+    return;
+  }
+  const km = Math.round(haversineKm(from, to));
+  const hrs = Math.floor(durationMinutes / 60), mins = durationMinutes % 60;
+  $('#routeMapStats').innerHTML = `
+    <div class="routemap-stat"><span class="lbl">Distance</span><span class="val">${km.toLocaleString()} km</span></div>
+    <div class="routemap-stat"><span class="lbl">Est. duration</span><span class="val">${hrs ? hrs + 'h ' : ''}${mins}m</span></div>
+    <div class="routemap-stat"><span class="lbl">Route</span><span class="val">${esc(originName)} → ${esc(destName)}</span></div>`;
+  setTimeout(() => {
+    if (routeMapInstance) { routeMapInstance.remove(); routeMapInstance = null; }
+    routeMapInstance = L.map('routeMap').setView(from, 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors', maxZoom: 18 }).addTo(routeMapInstance);
+    L.marker(from, { icon: L.divIcon({ className: 'route-pin', html: '🛫', iconSize: [26, 26] }) }).addTo(routeMapInstance).bindPopup(esc(originName));
+    L.marker(to, { icon: L.divIcon({ className: 'route-pin', html: '🏁', iconSize: [26, 26] }) }).addTo(routeMapInstance).bindPopup(esc(destName));
+    const line = L.polyline([from, to], { color: '#0b6e6e', weight: 3, dashArray: '2,10', lineCap: 'round' }).addTo(routeMapInstance);
+    routeMapInstance.fitBounds(line.getBounds(), { padding: [36, 36] });
+    const movingMarker = L.marker(from, { icon: L.divIcon({ className: 'route-pin moving', html: icon, iconSize: [22, 22] }) }).addTo(routeMapInstance);
+    let t0 = null;
+    function step(ts) {
+      if (!t0) t0 = ts;
+      const p = ((ts - t0) % 5000) / 5000;
+      movingMarker.setLatLng([from[0] + (to[0] - from[0]) * p, from[1] + (to[1] - from[1]) * p]);
+      routeMapAnimId = requestAnimationFrame(step);
+    }
+    routeMapAnimId = requestAnimationFrame(step);
+  }, 0);
 }
-$('#scene3dCloseBtn').addEventListener('click', () => $('#scene3dModal').classList.add('hidden'));
-$('#scene3dModal').addEventListener('click', e => { if (e.target.id === 'scene3dModal') $('#scene3dModal').classList.add('hidden'); });
-const scene3dStage = $('#scene3dStage');
-scene3dStage.addEventListener('pointerdown', e => {
-  scene3dDragging = true;
-  scene3dDragStart = { x: e.clientX, y: e.clientY, rot: { ...scene3dRotation } };
-  scene3dStage.setPointerCapture(e.pointerId);
-});
-scene3dStage.addEventListener('pointermove', e => {
-  if (!scene3dDragging) return;
-  const dx = e.clientX - scene3dDragStart.x, dy = e.clientY - scene3dDragStart.y;
-  scene3dRotation.y = scene3dDragStart.rot.y + dx * 0.4;
-  scene3dRotation.x = Math.max(-60, Math.min(60, scene3dDragStart.rot.x - dy * 0.3));
-  applyScene3DTransform();
-});
-['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => scene3dStage.addEventListener(ev, () => { scene3dDragging = false; }));
-
-/* ---- seat cabin scene (flight / bus / SGR share this) ---- */
-function buildCabinSceneHTML(rowsMeta) {
-  const seatSize = 26, gapX = 8, rowDepth = 44, aisleGap = 24, wallHeight = 130;
-  const rowWidths = rowsMeta.map(row => row.seats.length * seatSize + Math.max(row.seats.length - 1, 0) * gapX + aisleGap);
-  const cabinWidth = Math.max(...rowWidths, 120) + 30;
-  const totalDepth = Math.max(rowsMeta.length * rowDepth, rowDepth);
-
-  const rowsHTML = rowsMeta.map((row, ri) => {
-    const z = -ri * rowDepth;
-    const seatEls = row.seats.map((s, ci) => {
-      const cls = ['seat3d'];
-      if (s.chosen) cls.push('chosen');
-      else if (s.status === 'booked') cls.push('taken');
-      if (s.cabinClass === 'business') cls.push('biz');
-      const isLast = ci === row.seats.length - 1;
-      const marginRight = isLast ? '0' : (ci + 1 === row.aisleAfter ? (gapX + aisleGap) + 'px' : gapX + 'px');
-      return `<span class="${cls.join(' ')}" style="margin-right:${marginRight}" title="${esc(s.letter)}"></span>`;
-    }).join('');
-    return `<div class="cabin3d-row" style="transform:translate3d(-50%,40px,${z}px)">${seatEls}</div>`;
-  }).join('');
-
-  const windowsHTML = rowsMeta.map((row, ri) => {
-    const left = ri * rowDepth + rowDepth / 2 - 7;
-    return `<div class="cabin3d-window" style="width:16px;height:11px;left:${left}px;top:36px"></div>`;
-  }).join('');
-
-  const floor = `<div class="cabin3d-plane" style="width:${cabinWidth}px;height:${totalDepth}px;left:${-cabinWidth / 2}px;top:${-totalDepth / 2}px;transform:rotateX(90deg) translateZ(86px);background:linear-gradient(90deg,#232a28,#3a4340,#232a28)"></div>`;
-  const ceiling = `<div class="cabin3d-plane" style="width:${cabinWidth}px;height:${totalDepth}px;left:${-cabinWidth / 2}px;top:${-totalDepth / 2}px;transform:rotateX(90deg) translateZ(-44px);background:linear-gradient(90deg,#dcd6c8,#fffcf7,#dcd6c8)"></div>`;
-  const leftWall = `<div class="cabin3d-plane" style="width:${totalDepth}px;height:${wallHeight}px;left:${-totalDepth / 2}px;top:-28px;transform:translateX(${-cabinWidth / 2}px) rotateY(90deg);background:linear-gradient(180deg,#e2dccd,#b7ae9a 65%,#8f8776)">${windowsHTML}</div>`;
-  const rightWall = `<div class="cabin3d-plane" style="width:${totalDepth}px;height:${wallHeight}px;left:${-totalDepth / 2}px;top:-28px;transform:translateX(${cabinWidth / 2}px) rotateY(-90deg);background:linear-gradient(180deg,#e2dccd,#b7ae9a 65%,#8f8776)">${windowsHTML}</div>`;
-
-  return floor + ceiling + leftWall + rightWall + rowsHTML;
+function closeRouteMap() {
+  $('#routeMapModal').classList.add('hidden');
+  if (routeMapAnimId) { cancelAnimationFrame(routeMapAnimId); routeMapAnimId = null; }
 }
-function seatRowsMeta(seats, chosenSet, aisleAfter) {
-  const byRow = {};
-  seats.forEach(s => { (byRow[s.row_no] = byRow[s.row_no] || []).push(s); });
-  return Object.keys(byRow).sort((a, b) => a - b).map(r => ({
-    aisleAfter,
-    seats: byRow[r].sort((a, b) => a.letter.localeCompare(b.letter)).map(s => ({
-      letter: s.letter, cabinClass: s.cabin_class, status: s.status, chosen: chosenSet.has(s.id),
-    })),
-  }));
-}
-$('#flight3DBtn').addEventListener('click', () => {
+$('#routeMapCloseBtn').addEventListener('click', closeRouteMap);
+$('#routeMapModal').addEventListener('click', e => { if (e.target.id === 'routeMapModal') closeRouteMap(); });
+$('#flightRouteMapBtn').addEventListener('click', () => {
   const leg = flightLegs[flightLeg];
-  if (!leg.flight || !leg.seats.length) return toast('Select seats first', true);
-  const cols = Math.max(...leg.seats.map(s => s.letter.charCodeAt(0) - 64));
-  const rowsMeta = seatRowsMeta(leg.seats, leg.chosen, cols > 4 ? 3 : 2);
-  open3DModal(`${leg.flight.airline} ${leg.flight.flight_no}`, `${leg.flight.origin} → ${leg.flight.destination} · interactive cabin preview`, buildCabinSceneHTML(rowsMeta));
+  if (!leg.flight) return toast('Select a flight first', true);
+  openRouteMap(leg.flight.origin, leg.flight.destination, '✈️', `${leg.flight.airline} ${leg.flight.flight_no}`, leg.flight.duration_minutes);
 });
-$('#bus3DBtn').addEventListener('click', () => {
-  if (!busTrip || !busSeats.length) return toast('Select a coach first', true);
-  open3DModal(`${busTrip.operator} ${busTrip.coach_no}`, `${busTrip.origin} → ${busTrip.destination} · interactive coach preview`, buildCabinSceneHTML(seatRowsMeta(busSeats, busChosen, 2)));
+$('#busRouteMapBtn').addEventListener('click', () => {
+  if (!busTrip) return toast('Select a coach first', true);
+  openRouteMap(busTrip.origin, busTrip.destination, '🚌', `${busTrip.operator} ${busTrip.coach_no}`, busTrip.duration_minutes);
 });
-$('#sgr3DBtn').addEventListener('click', () => {
-  if (!sgrTrip || !sgrSeats.length) return toast('Select a coach first', true);
-  open3DModal('Madaraka Express', `${sgrTrip.origin} → ${sgrTrip.destination} · interactive coach preview`, buildCabinSceneHTML(seatRowsMeta(sgrSeats, sgrChosen, 3)));
+$('#sgrRouteMapBtn').addEventListener('click', () => {
+  if (!sgrTrip) return toast('Select a coach first', true);
+  openRouteMap(sgrTrip.origin, sgrTrip.destination, '🚄', 'Madaraka Express', sgrTrip.duration_minutes);
 });
-
-/* ---- villa room diorama ---- */
-function open3DVilla(property, room) {
-  if (!property) return;
-  const photos = (property.media || []).filter(m => m.media_type === 'photo').map(m => m.url);
-  const backCSS = photos[0] ? safePosterCSS(photos[0]) : '';
-  const sideCSS = photos[1] ? safePosterCSS(photos[1]) : '';
-  const floorCSS = photos[2] ? safePosterCSS(photos[2]) : '';
-  const title = room ? `${room.name} — ${property.name}` : property.name;
-  const sub = `${property.location}${property.country ? ', ' + property.country : ''} · interactive room preview`;
-  open3DModal(title, sub, buildVillaRoomHTML(backCSS, sideCSS, floorCSS));
-}
-function buildVillaRoomHTML(backCSS, sideCSS, floorCSS) {
-  const w = 260, d = 260, h = 170;
-  return `
-    <div class="room3d-face floor" style="width:${w}px;height:${d}px;left:${-w / 2}px;top:${-d / 2}px;transform:rotateX(90deg) translateZ(${h / 2}px);${floorCSS || 'background:linear-gradient(160deg,#6b5a44,#4a3d2e)'}"></div>
-    <div class="room3d-face ceiling" style="width:${w}px;height:${d}px;left:${-w / 2}px;top:${-d / 2}px;transform:rotateX(90deg) translateZ(${-h / 2}px);background:linear-gradient(180deg,#fffcf7,#e9e4d8)"></div>
-    <div class="room3d-face back" style="width:${w}px;height:${h}px;left:${-w / 2}px;top:${-h / 2}px;transform:translateZ(${-d / 2}px);${backCSS || 'background:linear-gradient(150deg,#0b6e6e,#123f3f)'}"></div>
-    <div class="room3d-face left" style="width:${d}px;height:${h}px;left:${-d / 2}px;top:${-h / 2}px;transform:translateX(${-w / 2}px) rotateY(90deg);${sideCSS || 'background:linear-gradient(150deg,#123f3f,#0b6e6e)'}"></div>
-    <div class="room3d-tag" style="left:${-w / 2 + 10}px;top:${h / 2 - 18}px;transform:translateZ(${d / 2 - 4}px)">Motion · 3D room preview</div>
-  `;
-}
 
 /* =========================================================
    BOOT

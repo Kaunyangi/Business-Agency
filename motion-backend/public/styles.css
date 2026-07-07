@@ -546,31 +546,16 @@ input.text-input:focus, select.text-input:focus, textarea.text-input:focus{outli
 .events-feed-scrolldown{position:absolute;bottom:14px;right:20px;z-index:2;font-family:var(--font-mono);font-size:10.5px;color:rgba(255,252,247,.75);letter-spacing:.08em;text-transform:uppercase;display:flex;align-items:center;gap:6px;animation:bobDown 1.8s infinite;}
 @keyframes bobDown{0%,100%{transform:translateY(0);opacity:.7}50%{transform:translateY(5px);opacity:1}}
 
-/* ========================================================= 3D PREVIEW ========================================================= */
-.scene3d-card{width:94vw;max-width:760px;}
-.scene3d-stage{
-  height:min(58vh,440px);border-radius:16px;overflow:hidden;position:relative;margin-top:10px;
-  background:radial-gradient(circle at 50% 15%,#1c2b2b 0%,#05100f 78%);
-  perspective:1100px;cursor:grab;touch-action:none;user-select:none;
-}
-.scene3d-stage:active{cursor:grabbing;}
-.scene3d-object{position:absolute;top:56%;left:50%;transform-style:preserve-3d;will-change:transform;}
-.scene3d-hint{text-align:center;font-size:11px;color:var(--ink-soft);margin-top:10px;font-family:var(--font-mono);letter-spacing:.05em;text-transform:uppercase;}
+/* ========================================================= ROUTE MAP (real GIS — Leaflet + OpenStreetMap) ========================================================= */
 .view3d-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--paper);padding:7px 13px;border-radius:100px;font-size:11.5px;font-weight:700;color:var(--ink);}
-
-.cabin3d-row{position:absolute;display:flex;align-items:center;}
-.seat3d{width:24px;height:24px;border-radius:6px 6px 3px 3px;background:linear-gradient(160deg,#e7dcc4,#b9a878);box-shadow:inset 0 -4px 6px rgba(0,0,0,.28),0 3px 7px rgba(0,0,0,.45);flex:none;}
-.seat3d.biz{width:28px;height:28px;background:linear-gradient(160deg,#f1e0b8,#c9a24a);}
-.seat3d.chosen{background:linear-gradient(160deg,#6fe0cf,#0b6e6e);box-shadow:inset 0 -4px 6px rgba(0,0,0,.3),0 0 16px rgba(111,224,207,.75);}
-.seat3d.taken{background:linear-gradient(160deg,#6b6b6b,#3a3a3a);box-shadow:inset 0 -3px 5px rgba(0,0,0,.4);}
-.cabin3d-plane{position:absolute;background-size:cover;background-position:center;}
-.cabin3d-window{position:absolute;border-radius:50%;background:radial-gradient(circle,#bfe4ff 0%,#5f95c9 65%,#284a68 100%);box-shadow:inset 0 0 6px rgba(0,0,0,.45),0 0 10px rgba(160,220,255,.35);}
-.cabin3d-aisle-light{position:absolute;border-radius:50%;background:radial-gradient(circle,#fff4d6,transparent 70%);opacity:.8;}
-
-.room3d-face{position:absolute;background-size:cover;background-position:center;box-shadow:inset 0 0 80px rgba(0,0,0,.4);}
-.room3d-face.floor{filter:brightness(.75);}
-.room3d-face.ceiling{filter:brightness(1.15);}
-.room3d-tag{position:absolute;font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,252,247,.6);}
+.routemap-card{width:94vw;max-width:760px;}
+#routeMap{height:min(50vh,420px);border-radius:16px;overflow:hidden;margin-top:10px;border:1px solid var(--line);}
+.route-pin{font-size:22px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4));}
+.route-pin.moving{font-size:19px;}
+.routemap-stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+.routemap-stat{flex:1;min-width:140px;background:var(--sand);border-radius:12px;padding:10px 14px;}
+.routemap-stat .lbl{display:block;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-bottom:4px;}
+.routemap-stat .val{font-family:var(--font-display);font-size:15px;font-weight:600;}
 
 /* ========================================================= TOAST ========================================================= */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);padding:12px 20px;border-radius:100px;font-size:13px;opacity:0;pointer-events:none;transition:all .25s ease;z-index:300;display:flex;align-items:center;gap:8px;max-width:90vw;text-align:center;}
